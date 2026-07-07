@@ -1,6 +1,7 @@
 package jmdict
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -52,5 +53,57 @@ func TestMakeGlossType(t *testing.T) {
 	gloss, err := makeGlossType("nonsense")
 	if err == nil && gloss == "" {
 		t.Error("created wrong gloss type (nonsense)")
+	}
+}
+
+func TestUnmarshallXrefWord(t *testing.T) {
+	data := []byte(`["一の字点"]`)
+	var xref xref
+
+	if err := xref.UnmarshalJSON(data); err != nil {
+		t.Errorf("got error trying to parse JSON: %v", err)
+	}
+	switch xref.Value.(type) {
+	case xrefWordReadingIndex, xrefWordReading, xrefWordIndex:
+		t.Errorf("Incorrect xref type: %v (should be xrefWord)", fmt.Sprintf("%T", xref.Value))
+	}
+}
+
+func TestUnmarshallXrefWordIndex(t *testing.T) {
+	data := []byte(`["〇〇", 1]`)
+	var xref xref
+
+	if err := xref.UnmarshalJSON(data); err != nil {
+		t.Errorf("got error trying to parse JSON: %v", err)
+	}
+	switch xref.Value.(type) {
+	case xrefWordReadingIndex, xrefWordReading, xrefWord:
+		t.Errorf("Incorrect xref type: %v (should be xrefWord)", fmt.Sprintf("%T", xref.Value))
+	}
+}
+
+func TestUnmarshallXrefWordReading(t *testing.T) {
+	data := []byte(`["丸", "まる"]`)
+	var xref xref
+
+	if err := xref.UnmarshalJSON(data); err != nil {
+		t.Errorf("got error trying to parse JSON: %v", err)
+	}
+	switch xref.Value.(type) {
+	case xrefWordReadingIndex, xrefWordIndex, xrefWord:
+		t.Errorf("Incorrect xref type: %v (should be xrefWord)", fmt.Sprintf("%T", xref.Value))
+	}
+}
+
+func TestUnmarshallXrefWordReadingIndex(t *testing.T) {
+	data := []byte(`["丸", "まる・1", 1]`)
+	var xref xref
+
+	if err := xref.UnmarshalJSON(data); err != nil {
+		t.Errorf("got error trying to parse JSON: %v", err)
+	}
+	switch xref.Value.(type) {
+	case xrefWordReading, xrefWordIndex, xrefWord:
+		t.Errorf("Incorrect xref type: %v (should be xrefWordReadingIndex)", fmt.Sprintf("%T", xref.Value))
 	}
 }

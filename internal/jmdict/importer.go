@@ -1,3 +1,5 @@
+// Package jmdict converts JMDict from JSON file into database
+// and provides API to access it
 package jmdict
 
 import (
@@ -96,6 +98,63 @@ func newXref[T xrefPayload](val T) *xref {
 	return &xref{
 		Value: val,
 	}
+}
+
+func (x *xref) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return nil
+	}
+
+	var raw []json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	switch len(raw) {
+	case 1:
+		s, err := GetStr(raw, 0)
+		if err != nil {
+			return err
+		}
+		x.Value = xrefWord{KanjiOrKana: s}
+	case 2:
+		s0, err := GetStr(raw, 0)
+		if err != nil {
+			return err
+		}
+		idx, isInt, err := GetInt(raw, 1)
+		if err != nil {
+			return err
+		}
+		if isInt {
+			x.Value = xrefWordIndex{KanjiOrKana: s0, SenseIndex: idx}
+		} else {
+			s1, err := GetStr(raw, 1)
+			if err != nil {
+				return err
+			}
+			x.Value = xrefWordReading{Kanji: s0, Kana: s1}
+		}
+
+	case 3:
+		s0, err := GetStr(raw, 0)
+		if err != nil {
+			return err
+		}
+		s1, err := GetStr(raw, 1)
+		if err != nil {
+			return err
+		}
+		idx, _, err := GetInt(raw, 2)
+		if err != nil {
+			return err
+		}
+		x.Value = xrefWordReadingIndex{Kanji: s0, Kana: s1, SenseIndex: idx}
+	default:
+		return fmt.Errorf("invalid xref length: %d", len(raw))
+	}
+
+	return nil
 }
 
 type gloss struct {
