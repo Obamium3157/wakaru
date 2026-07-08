@@ -100,6 +100,7 @@ func newXref[T xrefPayload](val T) *xref {
 	}
 }
 
+// TODO: написать негативные тесты для UnmarshalJSON
 func (x *xref) UnmarshalJSON(data []byte) error {
 	if string(data) == "null" {
 		return nil
@@ -112,47 +113,71 @@ func (x *xref) UnmarshalJSON(data []byte) error {
 
 	switch len(raw) {
 	case 1:
-		s, err := GetStr(raw, 0)
-		if err != nil {
+		if err := initXrefWord(x, raw); err != nil {
 			return err
 		}
-		x.Value = xrefWord{KanjiOrKana: s}
 	case 2:
-		s0, err := GetStr(raw, 0)
-		if err != nil {
+		if err := initXrefWOrdIndexOrWordReading(x, raw); err != nil {
 			return err
 		}
-		idx, isInt, err := GetInt(raw, 1)
-		if err != nil {
-			return err
-		}
-		if isInt {
-			x.Value = xrefWordIndex{KanjiOrKana: s0, SenseIndex: idx}
-		} else {
-			s1, err := GetStr(raw, 1)
-			if err != nil {
-				return err
-			}
-			x.Value = xrefWordReading{Kanji: s0, Kana: s1}
-		}
-
 	case 3:
-		s0, err := GetStr(raw, 0)
-		if err != nil {
+		if err := initXrefWordReadingIndex(x, raw); err != nil {
 			return err
 		}
+	default:
+		return fmt.Errorf("invalid xref length: %d", len(raw))
+	}
+
+	return nil
+}
+
+func initXrefWord(xref *xref, raw []json.RawMessage) error {
+	s, err := GetStr(raw, 0)
+	if err != nil {
+		return err
+	}
+	xref.Value = xrefWord{KanjiOrKana: s}
+
+	return nil
+}
+
+func initXrefWOrdIndexOrWordReading(xref *xref, raw []json.RawMessage) error {
+	s0, err := GetStr(raw, 0)
+	if err != nil {
+		return err
+	}
+	idx, isInt, err := GetInt(raw, 1)
+	if err != nil {
+		return err
+	}
+
+	if isInt {
+		xref.Value = xrefWordIndex{KanjiOrKana: s0, SenseIndex: idx}
+	} else {
 		s1, err := GetStr(raw, 1)
 		if err != nil {
 			return err
 		}
-		idx, _, err := GetInt(raw, 2)
-		if err != nil {
-			return err
-		}
-		x.Value = xrefWordReadingIndex{Kanji: s0, Kana: s1, SenseIndex: idx}
-	default:
-		return fmt.Errorf("invalid xref length: %d", len(raw))
+		xref.Value = xrefWordReading{Kanji: s0, Kana: s1}
 	}
+
+	return nil
+}
+
+func initXrefWordReadingIndex(xref *xref, raw []json.RawMessage) error {
+	s0, err := GetStr(raw, 0)
+	if err != nil {
+		return err
+	}
+	s1, err := GetStr(raw, 1)
+	if err != nil {
+		return err
+	}
+	idx, _, err := GetInt(raw, 2)
+	if err != nil {
+		return err
+	}
+	xref.Value = xrefWordReadingIndex{Kanji: s0, Kana: s1, SenseIndex: idx}
 
 	return nil
 }
