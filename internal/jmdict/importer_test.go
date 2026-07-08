@@ -1,6 +1,7 @@
 package jmdict
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 )
@@ -21,7 +22,7 @@ func TestConstructXref(t *testing.T) {
 
 func tryMakeGender(s string, t *testing.T) {
 	gender, err := makeGender(s)
-	if err != nil || gender == "" {
+	if err != nil || !gender.IsValid() {
 		t.Errorf("could not make gender: %v", err)
 	}
 }
@@ -32,14 +33,14 @@ func TestMakeGender(t *testing.T) {
 	tryMakeGender("neuter", t)
 
 	gender, err := makeGender("alien")
-	if err == nil && gender == "" {
+	if err == nil && !gender.IsValid() {
 		t.Error("created wrong gender (alien)")
 	}
 }
 
 func tryMakeGlossType(s string, t *testing.T) {
 	gloss, err := makeGlossType(s)
-	if err != nil || gloss == "" {
+	if err != nil || gloss.String == "" {
 		t.Errorf("could not make gloss type: %v", err)
 	}
 }
@@ -51,12 +52,12 @@ func TestMakeGlossType(t *testing.T) {
 	tryMakeGlossType("trademark", t)
 
 	gloss, err := makeGlossType("nonsense")
-	if err == nil && gloss == "" {
+	if err == nil && gloss.String == "" {
 		t.Error("created wrong gloss type (nonsense)")
 	}
 }
 
-func TestUnmarshallXrefWord(t *testing.T) {
+func TestUnmarshalXrefWord(t *testing.T) {
 	data := []byte(`["一の字点"]`)
 	var xref xref
 
@@ -69,7 +70,7 @@ func TestUnmarshallXrefWord(t *testing.T) {
 	}
 }
 
-func TestUnmarshallXrefWordIndex(t *testing.T) {
+func TestUnmarshalXrefWordIndex(t *testing.T) {
 	data := []byte(`["〇〇", 1]`)
 	var xref xref
 
@@ -82,7 +83,7 @@ func TestUnmarshallXrefWordIndex(t *testing.T) {
 	}
 }
 
-func TestUnmarshallXrefWordReading(t *testing.T) {
+func TestUnmarshalXrefWordReading(t *testing.T) {
 	data := []byte(`["丸", "まる"]`)
 	var xref xref
 
@@ -95,7 +96,7 @@ func TestUnmarshallXrefWordReading(t *testing.T) {
 	}
 }
 
-func TestUnmarshallXrefWordReadingIndex(t *testing.T) {
+func TestUnmarshalXrefWordReadingIndex(t *testing.T) {
 	data := []byte(`["丸", "まる・1", 1]`)
 	var xref xref
 
@@ -106,4 +107,64 @@ func TestUnmarshallXrefWordReadingIndex(t *testing.T) {
 	case xrefWordReading, xrefWordIndex, xrefWord:
 		t.Errorf("Incorrect xref type: %v (should be xrefWordReadingIndex)", fmt.Sprintf("%T", xref.Value))
 	}
+}
+
+func testGender(genderStr string, t *testing.T) {
+	jsonStr := fmt.Sprintf(`"%s"`, genderStr)
+	data := []byte(jsonStr)
+
+	var g gender
+	if err := json.Unmarshal(data, &g); err != nil {
+		t.Errorf("got error trying to parse JSON for %q: %v", genderStr, err)
+		return
+	}
+	if g.String != genderStr || !g.Valid {
+		t.Errorf("gender should be %v; got (%v %v)", genderStr, g.String, g.Valid)
+	}
+}
+
+func TestUnmarshalGender(t *testing.T) {
+	data := []byte(`null`)
+	var g gender
+	if err := json.Unmarshal(data, &g); err != nil {
+		t.Errorf("got error trying to parse JSON: %v", err)
+	}
+	if g.String != "" || g.Valid {
+		t.Errorf("g.String should be \"\" and g.Valid should be false (got (%v, %v))", g.String, g.Valid)
+	}
+
+	testGender("masculine", t)
+	testGender("feminine", t)
+	testGender("neuter", t)
+}
+
+func testGlossType(gtStr string, t *testing.T) {
+	jsonStr := fmt.Sprintf(`"%s"`, gtStr)
+	data := []byte(jsonStr)
+
+	var g glossType
+	if err := json.Unmarshal(data, &g); err != nil {
+		t.Errorf("got error trying to parse JSON for %q: %v", gtStr, err)
+		return
+	}
+
+	if g.String != gtStr || !g.Valid {
+		t.Errorf("gloss type should be %v; got (%v %v)", gtStr, g.String, g.Valid)
+	}
+}
+
+func TestUnmarshalGlossType(t *testing.T) {
+	data := []byte(`null`)
+	var g glossType
+	if err := json.Unmarshal(data, &g); err != nil {
+		t.Errorf("got error trying to parse JSON: %v", err)
+	}
+	if g.String != "" || g.Valid {
+		t.Errorf("g.String should be \"\" and g.Valid should be false (got (%v, %v))", g.String, g.Valid)
+	}
+
+	testGlossType("literal", t)
+	testGlossType("figurative", t)
+	testGlossType("explanation", t)
+	testGlossType("trademark", t)
 }

@@ -13,5 +13,9 @@ func main() {
 		log.Fatalf("%v", err)
 	}
 
-	fmt.Println(dict.Words)
+	fmt.Println(dict.Words[0])
+
+	for idx, val := range dict.Tags {
+		fmt.Printf("[%v]: %v\n", idx, val)
+	}
 }

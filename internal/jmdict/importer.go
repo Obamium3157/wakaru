@@ -189,10 +189,10 @@ type gloss struct {
 	Type   *glossType `json:"type"`
 }
 
-type gender string
+type gender sql.NullString
 
 func (g gender) IsValid() bool {
-	switch g {
+	switch g.String {
 	case GenderMasculine, GenderFeminine, GenderNeuter:
 		return true
 	}
@@ -200,21 +200,44 @@ func (g gender) IsValid() bool {
 	return false
 }
 
-func makeGender(s string) (gender, error) {
-	g := gender(s)
+func makeGender(s string) (*gender, error) {
+	g := gender{String: s, Valid: true}
 	if !g.IsValid() {
-		return "", fmt.Errorf("invalid gender value: %v", s)
+		return nil, fmt.Errorf("invalid gender value: %v", s)
 	}
 
-	return g, nil
+	return &g, nil
+}
+
+func (g *gender) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return nil
+	}
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	if s == "" {
+		g.String = ""
+		g.Valid = false
+		return nil
+	}
+	val, err := makeGender(s)
+	if err != nil {
+		g.String = ""
+		g.Valid = false
+		return err
+	}
+	*g = *val
+	return nil
 }
 
 type langCode string
 
-type glossType string
+type glossType sql.NullString
 
 func (g glossType) IsValid() bool {
-	switch g {
+	switch g.String {
 	case GlossLiteral, GlossFigurative, GlossExplanation, GlossTrademart:
 		return true
 	}
@@ -222,20 +245,45 @@ func (g glossType) IsValid() bool {
 	return false
 }
 
-func makeGlossType(s string) (glossType, error) {
-	g := glossType(s)
+func makeGlossType(s string) (*glossType, error) {
+	g := glossType{String: s, Valid: true}
 	if !g.IsValid() {
-		return "", fmt.Errorf("invalid glossType value: %v", s)
+		return nil, fmt.Errorf("invalid glossType value: %v", s)
 	}
 
-	return g, nil
+	return &g, nil
+}
+
+func (g *glossType) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return nil
+	}
+
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		g.String = ""
+		g.Valid = false
+
+		return err
+	}
+
+	val, err := makeGlossType(s)
+	if err != nil {
+		g.String = ""
+		g.Valid = false
+
+		return err
+	}
+
+	*g = *val
+	return nil
 }
 
 type languageSource struct {
-	Full  bool
-	Lang  langCode
-	text  sql.NullString
-	wasei bool
+	Full  bool           `json:"full"`
+	Lang  langCode       `json:"lang"`
+	text  sql.NullString `json:"text"`
+	wasei bool           `json:"wasei"`
 }
 
 func InitDB(jsonFilename string) (*Dictionary, error) {
