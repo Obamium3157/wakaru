@@ -27,14 +27,14 @@ type Dictionary struct {
 	DictDate      string            `json:"dictDate"`
 	DictRevisions []string          `json:"dictRevisions"`
 	Tags          map[string]string `json:"tags"`
-	Words         []word            `json:"words"`
+	Words         []Word            `json:"words"`
 }
 
-type word struct {
+type Word struct {
 	ID    string  `json:"id"`
 	Kana  []kana  `json:"kana"`
 	Kanji []kanji `json:"kanji"`
-	Sense []sense `json:"sense"`
+	Sense []Sense `json:"sense"`
 }
 
 type kana struct {
@@ -50,7 +50,7 @@ type kanji struct {
 	Text   string `json:"text"`
 }
 
-type sense struct {
+type Sense struct {
 	Antonym        []xref           `json:"antonym"`
 	AppliesToKana  []string         `json:"appliesToKana"`
 	AppliesToKanji []string         `json:"appliesToKanji"`
@@ -280,13 +280,33 @@ func (g *glossType) UnmarshalJSON(data []byte) error {
 }
 
 type languageSource struct {
-	Full  bool           `json:"full"`
-	Lang  langCode       `json:"lang"`
-	text  sql.NullString `json:"text"`
-	wasei bool           `json:"wasei"`
+	Full  bool     `json:"full"`
+	Lang  langCode `json:"lang"`
+	Text  text     `json:"text"`
+	Wasei bool     `json:"wasei"`
 }
 
-func InitDB(jsonFilename string) (*Dictionary, error) {
+type text sql.NullString
+
+func (t *text) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return nil
+	}
+
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		t.String = ""
+		t.Valid = false
+		return err
+	}
+
+	t.String = s
+	t.Valid = true
+
+	return nil
+}
+
+func InitDictionary(jsonFilename string) (*Dictionary, error) {
 	fileBytes, err := os.ReadFile(jsonFilename)
 	if err != nil {
 		return nil, err
