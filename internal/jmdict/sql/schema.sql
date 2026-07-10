@@ -2,7 +2,8 @@ PRAGMA foreign_keys = ON;
 
 CREATE TABLE IF NOT EXISTS `tag` (
   `id` INTEGER PRIMARY KEY,
-  `label` TEXT NOT NULL UNIQUE
+  `label` TEXT NOT NULL UNIQUE,
+  `description` TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS `word` (
@@ -31,6 +32,7 @@ CREATE TABLE IF NOT EXISTS `kana_tag` (
 CREATE TABLE IF NOT EXISTS `kana_applies_to_kanji` (
   `kana_id` INTEGER NOT NULL REFERENCES `kana` (`id`) ON DELETE CASCADE,
   `kanji_text` TEXT NOT NULL,
+  `display_order` INTEGER NOT NULL,
 
   PRIMARY KEY (`kana_id`, `kanji_text`)
 );
@@ -65,6 +67,7 @@ CREATE INDEX IF NOT EXISTS `idx_sense_word_order` ON `sense` (`word_id`, `displa
 CREATE TABLE IF NOT EXISTS `sense_dialect` (
   `sense_id` INTEGER NOT NULL REFERENCES `sense` (`id`) ON DELETE CASCADE,
   `tag_id` INTEGER NOT NULL REFERENCES `tag` (`id`),
+  `display_order` INTEGER NOT NULL,
 
   PRIMARY KEY (`sense_id`, `tag_id`)
 );
@@ -72,6 +75,7 @@ CREATE TABLE IF NOT EXISTS `sense_dialect` (
 CREATE TABLE IF NOT EXISTS `sense_field` (
   `sense_id` INTEGER NOT NULL REFERENCES `sense` (`id`) ON DELETE CASCADE,
   `tag_id` INTEGER NOT NULL REFERENCES `tag` (`id`),
+  `display_order` INTEGER NOT NULL,
 
   PRIMARY KEY (`sense_id`, `tag_id`)
 );
@@ -79,6 +83,7 @@ CREATE TABLE IF NOT EXISTS `sense_field` (
 CREATE TABLE IF NOT EXISTS `sense_misc` (
   `sense_id` INTEGER NOT NULL REFERENCES `sense` (`id`) ON DELETE CASCADE,
   `tag_id` INTEGER NOT NULL REFERENCES `tag` (`id`),
+  `display_order` INTEGER NOT NULL,
 
   PRIMARY KEY (`sense_id`, `tag_id`)
 );
@@ -86,6 +91,7 @@ CREATE TABLE IF NOT EXISTS `sense_misc` (
 CREATE TABLE IF NOT EXISTS `sense_part_of_speech` (
   `sense_id` INTEGER NOT NULL REFERENCES `sense` (`id`) ON DELETE CASCADE,
   `tag_id` INTEGER NOT NULL REFERENCES `tag` (`id`),
+  `display_order` INTEGER NOT NULL,
 
   PRIMARY KEY (`sense_id`, `tag_id`)
 );
@@ -93,6 +99,7 @@ CREATE TABLE IF NOT EXISTS `sense_part_of_speech` (
 CREATE TABLE IF NOT EXISTS `sense_applies_to_kana` (
   `sense_id` INTEGER NOT NULL REFERENCES `sense` (`id`) ON DELETE CASCADE,
   `kana_text` TEXT NOT NULL,
+  `display_order` INTEGER NOT NULL,
 
   PRIMARY KEY (`sense_id`, `kana_text`)
 );
@@ -100,6 +107,7 @@ CREATE TABLE IF NOT EXISTS `sense_applies_to_kana` (
 CREATE TABLE IF NOT EXISTS `sense_applies_to_kanji` (
   `sense_id` INTEGER NOT NULL REFERENCES `sense` (`id`) ON DELETE CASCADE,
   `kanji_text` TEXT NOT NULL,
+  `display_order` INTEGER NOT NULL,
 
   PRIMARY KEY (`sense_id`, `kanji_text`)
 );
@@ -141,7 +149,8 @@ CREATE TABLE IF NOT EXISTS `language_source` (
   `lang` VARCHAR(3) NOT NULL,
   `text` TEXT,
   `is_full` INTEGER NOT NULL DEFAULT 1 CHECK (`is_full` IN (0, 1)),
-  `is_wasei` INTEGER NOT NULL DEFAULT 0 CHECK (`is_wasei` IN (0, 1))
+  `is_wasei` INTEGER NOT NULL DEFAULT 0 CHECK (`is_wasei` IN (0, 1)),
+  `display_order` INTEGER NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS `idx_language_source_sense_id` ON `language_source` (`sense_id`);

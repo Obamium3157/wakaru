@@ -39,16 +39,26 @@ func main() {
 	}
 	fmt.Println("Successfully connected to database")
 
-	if err := jmdict.InitJMDictDB(db); err != nil {
-		log.Fatalf("failed to init jmdict database: %v", err)
-	}
+	/*
+			* `id` INTEGER PRIMARY KEY,
+		  `word_id` TEXT NOT NULL REFERENCES `word` (`id`) ON DELETE CASCADE,
+		  `is_common` INTEGER NOT NULL DEFAULT 0 CHECK (`is_common` IN (0, 1)),
+		  `text` TEXT NOT NULL,
+		  `display_order` INTEGER NOT NULL
+	*/
 
-	dict, err := LoadDictFromJSON("../jmdict/jmdict-eng-3.6.2.json")
-	if err != nil {
-		log.Fatalf("failed to lead dictionary: %v", err)
-	}
-
-	PrintWord(dict.Words[150])
+	// if err := jmdict.InitJMDictDB(db); err != nil {
+	// 	log.Fatalf("failed to init jmdict database: %v", err)
+	// }
+	//
+	// dict, err := LoadDictFromJSON("../jmdict/jmdict-eng-3.6.2.json")
+	// if err != nil {
+	// 	log.Fatalf("failed to lead dictionary: %v", err)
+	// }
+	//
+	// if err := jmdict.FillDatabase(db, dict); err != nil {
+	// 	log.Fatalf("failed to fill jmdict database: %v", err)
+	// }
 }
 
 func LoadDictFromJSON(jsonPath string) (*jmdict.Dictionary, error) {
@@ -79,7 +89,7 @@ func PrintWord(word jmdict.Word) {
 	fmt.Println("Kana :", word.Kana)
 	fmt.Println("Kanji: ", word.Kanji)
 	fmt.Println("Senses: ")
-	for _, sense := range word.Sense {
+	for _, sense := range word.Senses {
 		PrintSense(sense)
 	}
 }

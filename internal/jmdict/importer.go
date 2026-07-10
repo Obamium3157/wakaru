@@ -4,6 +4,7 @@ package jmdict
 
 import (
 	"database/sql"
+	"database/sql/driver"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -21,20 +22,20 @@ const (
 )
 
 type Dictionary struct {
-	Version       string            `json:"version"`
-	Languages     []langCode        `json:"languages"`
-	CommonOnly    bool              `json:"commonOnly"`
-	DictDate      string            `json:"dictDate"`
-	DictRevisions []string          `json:"dictRevisions"`
-	Tags          map[string]string `json:"tags"`
-	Words         []Word            `json:"words"`
+	Version       string         `json:"version"`
+	Languages     []langCode     `json:"languages"`
+	CommonOnly    bool           `json:"commonOnly"`
+	DictDate      string         `json:"dictDate"`
+	DictRevisions []string       `json:"dictRevisions"`
+	Tags          map[tag]string `json:"tags"`
+	Words         []Word         `json:"words"`
 }
 
 type Word struct {
-	ID    string  `json:"id"`
-	Kana  []kana  `json:"kana"`
-	Kanji []kanji `json:"kanji"`
-	Sense []Sense `json:"sense"`
+	ID     string  `json:"id"`
+	Kana   []kana  `json:"kana"`
+	Kanji  []kanji `json:"kanji"`
+	Senses []Sense `json:"sense"`
 }
 
 type kana struct {
@@ -67,40 +68,11 @@ type Sense struct {
 type tag string
 
 type xref struct {
-	Value any
+	Headword   string
+	Reading    sql.NullString
+	SenseIndex sql.NullInt64
 }
 
-type xrefPayload interface {
-	xrefWordReadingIndex | xrefWordReading | xrefWordIndex | xrefWord
-}
-
-type xrefWordReadingIndex struct {
-	Kanji      string
-	Kana       string
-	SenseIndex int
-}
-
-type xrefWordReading struct {
-	Kanji string
-	Kana  string
-}
-
-type xrefWordIndex struct {
-	KanjiOrKana string
-	SenseIndex  int
-}
-
-type xrefWord struct {
-	KanjiOrKana string
-}
-
-func newXref[T xrefPayload](val T) *xref {
-	return &xref{
-		Value: val,
-	}
-}
-
-// TODO: написать негативные тесты для UnmarshalJSON
 func (x *xref) UnmarshalJSON(data []byte) error {
 	if string(data) == "null" {
 		return nil
@@ -113,73 +85,93 @@ func (x *xref) UnmarshalJSON(data []byte) error {
 
 	switch len(raw) {
 	case 1:
-		if err := initXrefWord(x, raw); err != nil {
-			return err
-		}
+		return x.initWord(raw)
 	case 2:
-		if err := initXrefWOrdIndexOrWordReading(x, raw); err != nil {
-			return err
-		}
+		return x.initWordIndexOrReading(raw)
 	case 3:
-		if err := initXrefWordReadingIndex(x, raw); err != nil {
-			return err
-		}
+		return x.initWordReadingIndex(raw)
 	default:
 		return fmt.Errorf("invalid xref length: %d", len(raw))
 	}
+}
+
+func (x *xref) initWord(raw []json.RawMessage) error {
+	headword, err := GetStr(raw, 0)
+	if err != nil {
+		return err
+	}
+
+	x.Headword = headword
 
 	return nil
 }
 
-func initXrefWord(xref *xref, raw []json.RawMessage) error {
-	s, err := GetStr(raw, 0)
-	if err != nil {
-		return err
-	}
-	xref.Value = xrefWord{KanjiOrKana: s}
-
-	return nil
-}
-
-func initXrefWOrdIndexOrWordReading(xref *xref, raw []json.RawMessage) error {
-	s0, err := GetStr(raw, 0)
-	if err != nil {
-		return err
-	}
-	idx, isInt, err := GetInt(raw, 1)
+func (x *xref) initWordIndexOrReading(raw []json.RawMessage) error {
+	headword, err := GetStr(raw, 0)
 	if err != nil {
 		return err
 	}
 
-	if isInt {
-		xref.Value = xrefWordIndex{KanjiOrKana: s0, SenseIndex: idx}
-	} else {
-		s1, err := GetStr(raw, 1)
-		if err != nil {
-			return err
+	x.Headword = headword
+
+	if idx, isInt, err := GetInt(raw, 1); err != nil {
+		return err
+	} else if isInt {
+		x.SenseIndex = sql.NullInt64{
+			Int64: int64(idx),
+			Valid: true,
 		}
-		xref.Value = xrefWordReading{Kanji: s0, Kana: s1}
+		return nil
+	}
+
+	reading, err := GetStr(raw, 1)
+	if err != nil {
+		return err
+	}
+
+	x.Reading = sql.NullString{
+		String: reading,
+		Valid:  true,
 	}
 
 	return nil
 }
 
-func initXrefWordReadingIndex(xref *xref, raw []json.RawMessage) error {
-	s0, err := GetStr(raw, 0)
+func (x *xref) initWordReadingIndex(raw []json.RawMessage) error {
+	headword, err := GetStr(raw, 0)
 	if err != nil {
 		return err
 	}
-	s1, err := GetStr(raw, 1)
+
+	reading, err := GetStr(raw, 1)
 	if err != nil {
 		return err
 	}
-	idx, _, err := GetInt(raw, 2)
+
+	index, _, err := GetInt(raw, 2)
 	if err != nil {
 		return err
 	}
-	xref.Value = xrefWordReadingIndex{Kanji: s0, Kana: s1, SenseIndex: idx}
+
+	x.Headword = headword
+	x.Reading = sql.NullString{
+		String: reading,
+		Valid:  true,
+	}
+	x.SenseIndex = sql.NullInt64{
+		Int64: int64(index),
+		Valid: true,
+	}
 
 	return nil
+}
+
+func (x xref) HasReading() bool {
+	return x.Reading.Valid
+}
+
+func (x xref) HasSenseIndex() bool {
+	return x.SenseIndex.Valid
 }
 
 type gloss struct {
@@ -207,6 +199,14 @@ func makeGender(s string) (*gender, error) {
 	}
 
 	return &g, nil
+}
+
+func (g gender) Value() (driver.Value, error) {
+	if !g.Valid {
+		return nil, nil
+	}
+
+	return g.String, nil
 }
 
 func (g *gender) UnmarshalJSON(data []byte) error {
@@ -254,6 +254,14 @@ func makeGlossType(s string) (*glossType, error) {
 	return &g, nil
 }
 
+func (g glossType) Value() (driver.Value, error) {
+	if !g.Valid {
+		return nil, nil
+	}
+
+	return g.String, nil
+}
+
 func (g *glossType) UnmarshalJSON(data []byte) error {
 	if string(data) == "null" {
 		return nil
@@ -287,6 +295,14 @@ type languageSource struct {
 }
 
 type text sql.NullString
+
+func (t text) Value() (driver.Value, error) {
+	if !t.Valid {
+		return nil, nil
+	}
+
+	return t.String, nil
+}
 
 func (t *text) UnmarshalJSON(data []byte) error {
 	if string(data) == "null" {

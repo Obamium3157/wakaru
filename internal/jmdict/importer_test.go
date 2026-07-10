@@ -4,21 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
-
-func tryConstructXref[T xrefPayload](val T, t *testing.T) {
-	xref := newXref(val)
-	if xref == nil {
-		t.Error("could not create xref")
-	}
-}
-
-func TestConstructXref(t *testing.T) {
-	tryConstructXref(xrefWordReadingIndex{Kanji: "豚", Kana: "ぶた", SenseIndex: 1}, t)
-	tryConstructXref(xrefWordReading{Kanji: "豚", Kana: "ぶた"}, t)
-	tryConstructXref(xrefWordIndex{KanjiOrKana: "豚", SenseIndex: 1}, t)
-	tryConstructXref(xrefWord{KanjiOrKana: "豚"}, t)
-}
 
 func tryMakeGender(s string, t *testing.T) {
 	gender, err := makeGender(s)
@@ -64,10 +52,8 @@ func TestUnmarshalXrefWord(t *testing.T) {
 	if err := xref.UnmarshalJSON(data); err != nil {
 		t.Errorf("got error trying to parse JSON: %v", err)
 	}
-	switch xref.Value.(type) {
-	case xrefWordReadingIndex, xrefWordReading, xrefWordIndex:
-		t.Errorf("Incorrect xref type: %v (should be xrefWord)", fmt.Sprintf("%T", xref.Value))
-	}
+
+	assert.Equal(t, xref.Headword, "一の字点")
 }
 
 func TestUnmarshalXrefWordIndex(t *testing.T) {
@@ -77,10 +63,9 @@ func TestUnmarshalXrefWordIndex(t *testing.T) {
 	if err := xref.UnmarshalJSON(data); err != nil {
 		t.Errorf("got error trying to parse JSON: %v", err)
 	}
-	switch xref.Value.(type) {
-	case xrefWordReadingIndex, xrefWordReading, xrefWord:
-		t.Errorf("Incorrect xref type: %v (should be xrefWord)", fmt.Sprintf("%T", xref.Value))
-	}
+
+	assert.Equal(t, xref.Headword, "〇〇")
+	assert.Equal(t, xref.SenseIndex.Int64, int64(1))
 }
 
 func TestUnmarshalXrefWordReading(t *testing.T) {
@@ -90,10 +75,9 @@ func TestUnmarshalXrefWordReading(t *testing.T) {
 	if err := xref.UnmarshalJSON(data); err != nil {
 		t.Errorf("got error trying to parse JSON: %v", err)
 	}
-	switch xref.Value.(type) {
-	case xrefWordReadingIndex, xrefWordIndex, xrefWord:
-		t.Errorf("Incorrect xref type: %v (should be xrefWord)", fmt.Sprintf("%T", xref.Value))
-	}
+
+	assert.Equal(t, xref.Headword, "丸")
+	assert.Equal(t, xref.Reading.String, "まる")
 }
 
 func TestUnmarshalXrefWordReadingIndex(t *testing.T) {
@@ -103,10 +87,10 @@ func TestUnmarshalXrefWordReadingIndex(t *testing.T) {
 	if err := xref.UnmarshalJSON(data); err != nil {
 		t.Errorf("got error trying to parse JSON: %v", err)
 	}
-	switch xref.Value.(type) {
-	case xrefWordReading, xrefWordIndex, xrefWord:
-		t.Errorf("Incorrect xref type: %v (should be xrefWordReadingIndex)", fmt.Sprintf("%T", xref.Value))
-	}
+
+	assert.Equal(t, xref.Headword, "丸")
+	assert.Equal(t, xref.Reading, "まる・1")
+	assert.Equal(t, xref.SenseIndex, 1)
 }
 
 func testGender(genderStr string, t *testing.T) {
