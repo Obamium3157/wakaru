@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"wakaru/internal/jmdict"
+	"wakaru/internal/jmdict/repository"
 
 	"github.com/joho/godotenv"
 	_ "github.com/mattn/go-sqlite3"
@@ -39,26 +40,40 @@ func main() {
 	}
 	fmt.Println("Successfully connected to database")
 
-	/*
-			* `id` INTEGER PRIMARY KEY,
-		  `word_id` TEXT NOT NULL REFERENCES `word` (`id`) ON DELETE CASCADE,
-		  `is_common` INTEGER NOT NULL DEFAULT 0 CHECK (`is_common` IN (0, 1)),
-		  `text` TEXT NOT NULL,
-		  `display_order` INTEGER NOT NULL
-	*/
+	repo, err := repository.NewSQLiteRepo(db)
+	if err != nil {
+		log.Fatalf("error creating jmdict repo: %v", err)
+	}
 
-	// if err := jmdict.InitJMDictDB(db); err != nil {
-	// 	log.Fatalf("failed to init jmdict database: %v", err)
-	// }
-	//
-	// dict, err := LoadDictFromJSON("../jmdict/jmdict-eng-3.6.2.json")
-	// if err != nil {
-	// 	log.Fatalf("failed to lead dictionary: %v", err)
-	// }
-	//
-	// if err := jmdict.FillDatabase(db, dict); err != nil {
-	// 	log.Fatalf("failed to fill jmdict database: %v", err)
-	// }
+	entries, err := repo.Find("猫")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, entry := range entries {
+		fmt.Printf("ID: %s\n", entry.ID)
+
+		fmt.Println("Kanji:")
+		for _, k := range entry.Kanji {
+			fmt.Printf("  %s\n", k)
+		}
+
+		fmt.Println("Kana:")
+		for _, k := range entry.Kana {
+			fmt.Printf("  %s\n", k)
+		}
+
+		fmt.Println("Translations:")
+		for _, t := range entry.Translations {
+			fmt.Printf("  Sense %d\n", t.SenseID)
+
+			for _, g := range t.Glosses {
+				fmt.Printf("    [%s] %s\n", g.Lang, g.Text)
+			}
+		}
+
+		fmt.Println()
+	}
 }
 
 func LoadDictFromJSON(jsonPath string) (*jmdict.Dictionary, error) {
@@ -68,28 +83,4 @@ func LoadDictFromJSON(jsonPath string) (*jmdict.Dictionary, error) {
 	}
 
 	return dict, nil
-}
-
-func PrintSense(sense jmdict.Sense) {
-	fmt.Println("\tAntonym: ", sense.Antonym)
-	fmt.Println("\tApplies to kana: ", sense.AppliesToKana)
-	fmt.Println("\tApplies to kanji: ", sense.AppliesToKanji)
-	fmt.Println("\tDialect: ", sense.Dialect)
-	fmt.Println("\tField: ", sense.Field)
-	fmt.Println("\tGloss: ", sense.Gloss)
-	fmt.Println("\tInfo: ", sense.Info)
-	fmt.Println("\tLanguage source: ", sense.LanguageSource)
-	fmt.Println("\tMisc: ", sense.Misc)
-	fmt.Println("\tPart of speech: ", sense.PartOfSpeech)
-	fmt.Println("\tRelated: ", sense.Related)
-}
-
-func PrintWord(word jmdict.Word) {
-	fmt.Println("ID: ", word.ID)
-	fmt.Println("Kana :", word.Kana)
-	fmt.Println("Kanji: ", word.Kanji)
-	fmt.Println("Senses: ")
-	for _, sense := range word.Senses {
-		PrintSense(sense)
-	}
 }
