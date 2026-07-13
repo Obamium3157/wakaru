@@ -9,10 +9,9 @@ import (
 	"net/url"
 )
 
-const (
-	baseURL  = "https://api.tatoeba.org/v1/sentences"
-	langCode = "jpn"
-)
+const langCode = "jpn"
+
+var baseURL = "https://api.tatoeba.org/v1/sentences"
 
 type sentence struct {
 	ID   int    `json:"id"`
