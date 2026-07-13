@@ -9,10 +9,6 @@ import (
 	"net/url"
 )
 
-const langCode = "jpn"
-
-var baseURL = "https://api.tatoeba.org/v1/sentences"
-
 type sentence struct {
 	ID   int    `json:"id"`
 	Text string `json:"text"`
@@ -28,15 +24,15 @@ type Example struct {
 	Text string
 }
 
-func Search(word string) ([]Example, error) {
-	u, err := url.Parse(baseURL)
+func (c *Client) Search(word string) ([]Example, error) {
+	u, err := url.Parse(c.baseURL)
 	if err != nil {
 		return nil, err
 	}
 
 	setRawQuery(u, word)
 
-	resp, err := http.Get(u.String())
+	resp, err := c.client.Get(u.String())
 	if err != nil {
 		return nil, err
 	}

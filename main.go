@@ -35,7 +35,9 @@ func main() {
 
 	printEntries(entries)
 
-	examples, err := examples.Search(word)
+	tatoebaClient := examples.NewClient()
+
+	examples, err := tatoebaClient.Search(word)
 	if err != nil {
 		log.Fatal(err)
 	}
