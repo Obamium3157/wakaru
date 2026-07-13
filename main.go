@@ -8,7 +8,6 @@ import (
 	"os"
 	"time"
 
-	"wakaru/internal/jmdict"
 	"wakaru/internal/jmdict/repository"
 
 	"github.com/joho/godotenv"
@@ -16,40 +15,55 @@ import (
 )
 
 func main() {
-	if err := godotenv.Load(); err != nil {
-		log.Fatalf("Error loading .env file: %v", err)
+	if len(os.Args) != 2 {
+		log.Fatalf("usage: %s <word>", os.Args[0])
 	}
 
-	dbPath := os.Getenv("DB_PATH")
-
-	db, err := sql.Open("sqlite3", dbPath)
-	if err != nil {
-		log.Fatalf("got an error trying to open database: %v", err)
-	}
+	db := mustOpenDB()
 	defer func() {
-		if err := db.Close(); err != nil {
-			log.Fatalf("got an error trying to close database: %v", err)
-		}
+		_ = db.Close()
 	}()
+
+	repo := mustCreateRepo(db)
+
+	entries, err := repo.Find(os.Args[1])
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	printEntries(entries)
+}
+
+func mustOpenDB() *sql.DB {
+	if err := godotenv.Load(); err != nil {
+		log.Fatal(err)
+	}
+
+	db, err := sql.Open("sqlite3", os.Getenv("DB_PATH"))
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
 	if err := db.PingContext(ctx); err != nil {
-		log.Fatalf("Database unreachable: %v", err)
-	}
-	fmt.Println("Successfully connected to database")
-
-	repo, err := repository.NewSQLiteRepo(db)
-	if err != nil {
-		log.Fatalf("error creating jmdict repo: %v", err)
-	}
-
-	entries, err := repo.Find("猫")
-	if err != nil {
+		_ = db.Close()
 		log.Fatal(err)
 	}
 
+	return db
+}
+
+func mustCreateRepo(db *sql.DB) repository.Repository {
+	repo, err := repository.NewSQLiteRepo(db)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return repo
+}
+
+func printEntries(entries []repository.Entry) {
 	for _, entry := range entries {
 		fmt.Printf("ID: %s\n", entry.ID)
 
@@ -74,13 +88,4 @@ func main() {
 
 		fmt.Println()
 	}
-}
-
-func LoadDictFromJSON(jsonPath string) (*jmdict.Dictionary, error) {
-	dict, err := jmdict.InitDictionary(jsonPath)
-	if err != nil {
-		return nil, err
-	}
-
-	return dict, nil
 }

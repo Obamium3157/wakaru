@@ -20,7 +20,7 @@ func FillDatabase(db *sql.DB, dict *Dictionary) error {
 	}
 
 	for _, word := range dict.Words {
-		if err := ins.insertWordFn(&word); err != nil {
+		if err := ins.InsertWord(&word); err != nil {
 			return err
 		}
 	}

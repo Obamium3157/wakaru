@@ -53,12 +53,12 @@ func newInserter(tx *sql.Tx, dict *Dictionary) (*inserter, error) {
 	return ins, nil
 }
 
-func (ins *inserter) exec(stmt *sql.Stmt, args ...any) error {
+func (ins *inserter) Exec(stmt *sql.Stmt, args ...any) error {
 	_, err := stmt.Exec(args...)
 	return err
 }
 
-func (ins *inserter) execInsertID(stmt *sql.Stmt, args ...any) (int64, error) {
+func (ins *inserter) ExecInsertID(stmt *sql.Stmt, args ...any) (int64, error) {
 	res, err := stmt.Exec(args...)
 	if err != nil {
 		return 0, err
@@ -67,7 +67,7 @@ func (ins *inserter) execInsertID(stmt *sql.Stmt, args ...any) (int64, error) {
 	return res.LastInsertId()
 }
 
-func (ins *inserter) tagID(tagValue tag) (int64, error) {
+func (ins *inserter) TagID(tagValue tag) (int64, error) {
 	id, ok := ins.tagIDs[tagValue]
 	if !ok {
 		return 0, fmt.Errorf("unknown tag %q", tagValue)
@@ -76,25 +76,25 @@ func (ins *inserter) tagID(tagValue tag) (int64, error) {
 	return id, nil
 }
 
-func (ins *inserter) insertWordFn(word *Word) error {
-	if err := ins.exec(ins.insertWord, word.ID); err != nil {
+func (ins *inserter) InsertWord(word *Word) error {
+	if err := ins.Exec(ins.insertWord, word.ID); err != nil {
 		return err
 	}
 
 	for order, kanaValue := range word.Kana {
-		if err := ins.insertKanaFn(word.ID, &kanaValue, order); err != nil {
+		if err := ins.InsertKana(word.ID, &kanaValue, order); err != nil {
 			return err
 		}
 	}
 
 	for order, kanjiValue := range word.Kanji {
-		if err := ins.insertKanjiFn(word.ID, &kanjiValue, order); err != nil {
+		if err := ins.InsertKanji(word.ID, &kanjiValue, order); err != nil {
 			return err
 		}
 	}
 
 	for order, senseValue := range word.Senses {
-		if err := ins.insertSenseFn(word.ID, &senseValue, order); err != nil {
+		if err := ins.InsertSense(word.ID, &senseValue, order); err != nil {
 			return err
 		}
 	}
@@ -102,8 +102,8 @@ func (ins *inserter) insertWordFn(word *Word) error {
 	return nil
 }
 
-func (ins *inserter) insertKanaFn(wordID string, kanaValue *kana, order int) error {
-	kanaID, err := ins.execInsertID(
+func (ins *inserter) InsertKana(wordID string, kanaValue *kana, order int) error {
+	kanaID, err := ins.ExecInsertID(
 		ins.insertKana,
 		wordID,
 		kanaValue.Common,
@@ -115,7 +115,7 @@ func (ins *inserter) insertKanaFn(wordID string, kanaValue *kana, order int) err
 	}
 
 	for ordNum, kanjiText := range kanaValue.AppliesToKanji {
-		if err := ins.exec(
+		if err := ins.Exec(
 			ins.insertKanaAppliesToKanji,
 			kanaID,
 			kanjiText,
@@ -126,12 +126,12 @@ func (ins *inserter) insertKanaFn(wordID string, kanaValue *kana, order int) err
 	}
 
 	for _, tagValue := range kanaValue.Tags {
-		tagID, err := ins.tagID(tagValue)
+		tagID, err := ins.TagID(tagValue)
 		if err != nil {
 			return err
 		}
 
-		if err := ins.exec(
+		if err := ins.Exec(
 			ins.insertKanaTag,
 			kanaID,
 			tagID,
@@ -143,8 +143,8 @@ func (ins *inserter) insertKanaFn(wordID string, kanaValue *kana, order int) err
 	return nil
 }
 
-func (ins *inserter) insertKanjiFn(wordID string, kanjiValue *kanji, order int) error {
-	kanjiID, err := ins.execInsertID(
+func (ins *inserter) InsertKanji(wordID string, kanjiValue *kanji, order int) error {
+	kanjiID, err := ins.ExecInsertID(
 		ins.insertKanji,
 		wordID,
 		kanjiValue.Common,
@@ -156,12 +156,12 @@ func (ins *inserter) insertKanjiFn(wordID string, kanjiValue *kanji, order int) 
 	}
 
 	for _, tagValue := range kanjiValue.Tags {
-		tagID, err := ins.tagID(tagValue)
+		tagID, err := ins.TagID(tagValue)
 		if err != nil {
 			return err
 		}
 
-		if err := ins.exec(
+		if err := ins.Exec(
 			ins.insertKanjiTag,
 			kanjiID,
 			tagID,
@@ -173,8 +173,8 @@ func (ins *inserter) insertKanjiFn(wordID string, kanjiValue *kanji, order int) 
 	return nil
 }
 
-func (ins *inserter) insertSenseFn(wordID string, senseValue *Sense, order int) error {
-	senseID, err := ins.execInsertID(
+func (ins *inserter) InsertSense(wordID string, senseValue *Sense, order int) error {
+	senseID, err := ins.ExecInsertID(
 		ins.insertSense,
 		wordID,
 		order,
@@ -184,51 +184,51 @@ func (ins *inserter) insertSenseFn(wordID string, senseValue *Sense, order int) 
 	}
 
 	for ordNum, pos := range senseValue.PartOfSpeech {
-		tagID, err := ins.tagID(pos)
+		tagID, err := ins.TagID(pos)
 		if err != nil {
 			return err
 		}
 
-		if err := ins.exec(ins.insertPartOfSpeech, senseID, tagID, ordNum); err != nil {
+		if err := ins.Exec(ins.insertPartOfSpeech, senseID, tagID, ordNum); err != nil {
 			return err
 		}
 	}
 
 	for ordNum, field := range senseValue.Field {
-		tagID, err := ins.tagID(field)
+		tagID, err := ins.TagID(field)
 		if err != nil {
 			return err
 		}
 
-		if err := ins.exec(ins.insertField, senseID, tagID, ordNum); err != nil {
+		if err := ins.Exec(ins.insertField, senseID, tagID, ordNum); err != nil {
 			return err
 		}
 	}
 
 	for ordNum, dialect := range senseValue.Dialect {
-		tagID, err := ins.tagID(dialect)
+		tagID, err := ins.TagID(dialect)
 		if err != nil {
 			return err
 		}
 
-		if err := ins.exec(ins.insertDialect, senseID, tagID, ordNum); err != nil {
+		if err := ins.Exec(ins.insertDialect, senseID, tagID, ordNum); err != nil {
 			return err
 		}
 	}
 
 	for ordNum, misc := range senseValue.Misc {
-		tagID, err := ins.tagID(misc)
+		tagID, err := ins.TagID(misc)
 		if err != nil {
 			return err
 		}
 
-		if err := ins.exec(ins.insertMisc, senseID, tagID, ordNum); err != nil {
+		if err := ins.Exec(ins.insertMisc, senseID, tagID, ordNum); err != nil {
 			return err
 		}
 	}
 
 	for ordNum, kanaText := range senseValue.AppliesToKana {
-		if err := ins.exec(
+		if err := ins.Exec(
 			ins.insertSenseAppliesToKana,
 			senseID,
 			kanaText,
@@ -239,7 +239,7 @@ func (ins *inserter) insertSenseFn(wordID string, senseValue *Sense, order int) 
 	}
 
 	for ordNum, kanjiText := range senseValue.AppliesToKanji {
-		if err := ins.exec(
+		if err := ins.Exec(
 			ins.insertSenseAppliesToKanji,
 			senseID,
 			kanjiText,
@@ -250,7 +250,7 @@ func (ins *inserter) insertSenseFn(wordID string, senseValue *Sense, order int) 
 	}
 
 	for ordNum, infoText := range senseValue.Info {
-		if err := ins.exec(
+		if err := ins.Exec(
 			ins.insertInfo,
 			senseID,
 			infoText,
@@ -261,7 +261,7 @@ func (ins *inserter) insertSenseFn(wordID string, senseValue *Sense, order int) 
 	}
 
 	for ordNum, source := range senseValue.LanguageSource {
-		if err := ins.exec(
+		if err := ins.Exec(
 			ins.insertLanguageSource,
 			senseID,
 			source.Lang,
@@ -275,7 +275,7 @@ func (ins *inserter) insertSenseFn(wordID string, senseValue *Sense, order int) 
 	}
 
 	for ordNum, glossValue := range senseValue.Gloss {
-		if err := ins.exec(
+		if err := ins.Exec(
 			ins.insertGloss,
 			senseID,
 			glossValue.Lang,
@@ -289,7 +289,7 @@ func (ins *inserter) insertSenseFn(wordID string, senseValue *Sense, order int) 
 	}
 
 	for ordNum, related := range senseValue.Related {
-		if err := ins.insertXrefRow(
+		if err := ins.InsertXrefRow(
 			senseID,
 			"related",
 			related,
@@ -300,7 +300,7 @@ func (ins *inserter) insertSenseFn(wordID string, senseValue *Sense, order int) 
 	}
 
 	for ordNum, antonym := range senseValue.Antonym {
-		if err := ins.insertXrefRow(
+		if err := ins.InsertXrefRow(
 			senseID,
 			"antonym",
 			antonym,
@@ -313,13 +313,13 @@ func (ins *inserter) insertSenseFn(wordID string, senseValue *Sense, order int) 
 	return nil
 }
 
-func (ins *inserter) insertXrefRow(
+func (ins *inserter) InsertXrefRow(
 	senseID int64,
 	relationType string,
 	ref xref,
 	order int,
 ) error {
-	return ins.exec(
+	return ins.Exec(
 		ins.insertXref,
 		senseID,
 		relationType,
