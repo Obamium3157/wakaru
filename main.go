@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"wakaru/internal/examples"
 	"wakaru/internal/jmdict/repository"
 
 	"github.com/joho/godotenv"
@@ -18,20 +19,28 @@ func main() {
 	if len(os.Args) != 2 {
 		log.Fatalf("usage: %s <word>", os.Args[0])
 	}
+	word := os.Args[1]
 
 	db := mustOpenDB()
 	defer func() {
 		_ = db.Close()
 	}()
 
-	repo := mustCreateRepo(db)
+	repo := createRepo(db)
 
-	entries, err := repo.Find(os.Args[1])
+	entries, err := repo.Find(word)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	printEntries(entries)
+
+	examples, err := examples.Search(word)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("Examples: ")
+	printExamples(examples)
 }
 
 func mustOpenDB() *sql.DB {
@@ -55,7 +64,7 @@ func mustOpenDB() *sql.DB {
 	return db
 }
 
-func mustCreateRepo(db *sql.DB) repository.Repository {
+func createRepo(db *sql.DB) repository.Repository {
 	repo, err := repository.NewSQLiteRepo(db)
 	if err != nil {
 		log.Fatal(err)
@@ -87,5 +96,11 @@ func printEntries(entries []repository.Entry) {
 		}
 
 		fmt.Println()
+	}
+}
+
+func printExamples(examples []examples.Example) {
+	for idx, example := range examples {
+		fmt.Printf("  Example #%d: %s\n", idx, example.Text)
 	}
 }
