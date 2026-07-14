@@ -1,11 +1,15 @@
 module wakaru
 
-go 1.26.4
+go 1.26.5
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
+	github.com/ikawaha/kagome-dict v1.1.7 // indirect
+	github.com/ikawaha/kagome-dict/ipa v1.2.6 // indirect
+	github.com/ikawaha/kagome-dict/uni v1.2.6 // indirect
+	github.com/ikawaha/kagome/v2 v2.11.0 // indirect
 	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-sqlite3 v1.14.47 // indirect

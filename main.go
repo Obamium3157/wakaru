@@ -1,5 +1,7 @@
 package main
 
+// TODO: При работе с горутинами обрабатывать ситемные сигналы
+
 import (
 	"context"
 	"database/sql"
@@ -19,16 +21,16 @@ func main() {
 	if len(os.Args) != 2 {
 		log.Fatalf("usage: %s <word>", os.Args[0])
 	}
-	word := os.Args[1]
+	input := os.Args[1]
 
-	db := mustOpenDB()
+	db := openDB()
 	defer func() {
 		_ = db.Close()
 	}()
 
 	repo := createRepo(db)
 
-	entries, err := repo.Find(word)
+	entries, err := repo.Find(input)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -37,7 +39,7 @@ func main() {
 
 	tatoebaClient := examples.NewClient()
 
-	examples, err := tatoebaClient.Search(word)
+	examples, err := tatoebaClient.Search(input)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -45,7 +47,7 @@ func main() {
 	printExamples(examples)
 }
 
-func mustOpenDB() *sql.DB {
+func openDB() *sql.DB {
 	if err := godotenv.Load(); err != nil {
 		log.Fatal(err)
 	}

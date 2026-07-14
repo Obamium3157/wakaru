@@ -6,4 +6,6 @@ type Repository interface {
 	FindByKanji(text string) ([]Entry, error)
 
 	FindByKana(text string) ([]Entry, error)
+
+	// TODO: implement FindALlForms
 }
