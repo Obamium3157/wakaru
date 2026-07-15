@@ -9,6 +9,8 @@ import (
 	"wakaru/internal/examples"
 	"wakaru/internal/jmdict/repository"
 	"wakaru/internal/tokenize"
+
+	"golang.org/x/sync/errgroup"
 )
 
 type Result struct {
@@ -58,19 +60,45 @@ func (w *Wakaru) Run(ctx context.Context, input string) (string, []Result, error
 		return "", nil, err
 	}
 
-	var results []Result
-	for _, t := range tokens {
-		entries, err := w.FindEntries(ctx, t)
-		if err != nil {
-			return "", nil, err
-		}
+	// var results []Result
+	// for _, t := range tokens {
+	// 	entries, err := w.FindEntries(ctx, t)
+	// 	if err != nil {
+	// 		return "", nil, err
+	// 	}
+	//
+	// 	examples, err := w.FindExamples(ctx, t)
+	// 	if err != nil {
+	// 		return "", nil, err
+	// 	}
+	//
+	// 	results = append(results, Result{entries, examples})
+	// }
 
-		examples, err := w.FindExamples(ctx, t)
-		if err != nil {
-			return "", nil, err
-		}
+	results := make([]Result, len(tokens))
 
-		results = append(results, Result{entries, examples})
+	g, ctx := errgroup.WithContext(ctx)
+
+	for i, t := range tokens {
+		g.Go(func() error {
+			entries, err := w.FindEntries(ctx, t)
+			if err != nil {
+				return err
+			}
+
+			examples, err := w.FindExamples(ctx, t)
+			if err != nil {
+				return err
+			}
+
+			results[i] = Result{entries, examples}
+
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		return "", nil, err
 	}
 
 	return formDisplaySearchString(tokens), results, nil

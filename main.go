@@ -26,14 +26,13 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer func() {
-		if err := w.Close(); err != nil {
-			log.Fatal(err)
-		}
-	}()
+	defer w.Close()
 
 	dispStr, results, err := w.Run(ctx, input)
 	if err != nil {
+		if ctx.Err() != nil {
+			os.Exit(0)
+		}
 		log.Fatal(err)
 	}
 
