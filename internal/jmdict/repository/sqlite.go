@@ -17,6 +17,8 @@ type SQLiteRepo struct {
 	findKana  *sql.Stmt
 
 	findTranslations *sql.Stmt
+
+	findAllForms *sql.Stmt
 }
 
 func NewSQLiteRepo(db *sql.DB) (*SQLiteRepo, error) {
@@ -40,6 +42,9 @@ func NewSQLiteRepo(db *sql.DB) (*SQLiteRepo, error) {
 		return nil, err
 	}
 	if repo.findTranslations, err = db.Prepare(findTranslationsQuery); err != nil {
+		return nil, err
+	}
+	if repo.findAllForms, err = db.Prepare(findAllFormsQuery); err != nil {
 		return nil, err
 	}
 
@@ -71,6 +76,32 @@ func (r *SQLiteRepo) Find(text string) ([]Entry, error) {
 	}
 
 	return r.loadEntries(rows)
+}
+
+func (r *SQLiteRepo) FindAllForms() ([]string, error) {
+	rows, err := r.findAllForms.Query()
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = rows.Close()
+	}()
+
+	var forms []string
+
+	for rows.Next() {
+		var text string
+		if err := rows.Scan(&text); err != nil {
+			return nil, err
+		}
+		forms = append(forms, text)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return forms, nil
 }
 
 func (r *SQLiteRepo) loadEntries(rows *sql.Rows) ([]Entry, error) {

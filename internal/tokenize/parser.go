@@ -41,10 +41,10 @@ type DisplayToken struct {
 	Lookup  *string
 }
 
-func Parse(tokens []RawToken, lookupSet map[string]bool) []DisplayToken {
-	p := &parser{
-		tokens:    tokens,
-		lookupSet: lookupSet,
+func Parse(tokens []tokenizer.Token, lookupSet map[string]bool) ([]DisplayToken, error) {
+	p, err := newParser(tokens, lookupSet)
+	if err != nil {
+		return nil, err
 	}
 
 	var result []DisplayToken
@@ -82,7 +82,7 @@ func Parse(tokens []RawToken, lookupSet map[string]bool) []DisplayToken {
 		result = append(result, p.parseUnknown())
 	}
 
-	return result
+	return result, nil
 }
 
 type parser struct {
@@ -110,7 +110,7 @@ func (p *parser) next() RawToken {
 	return t
 }
 
-func NewParser(tokens []tokenizer.Token, lookupSet map[string]bool) (*parser, error) {
+func newParser(tokens []tokenizer.Token, lookupSet map[string]bool) (*parser, error) {
 	var rawTokens []RawToken
 	for _, tok := range tokens {
 		rt, err := NewRawToken(tok)
@@ -393,23 +393,22 @@ func (p *parser) parseNounPhrase() (DisplayToken, bool) {
 	}
 
 	startPos := p.pos
-	var surface strings.Builder
+	nouns := p.collectNounPhrase()
 
-	for !p.eof() {
-		next := p.peek()
-		if next.POSMajor != KindNoun && next.POSMajor != KindPrefix {
-			break
-		}
-		surface.WriteString(next.Surface)
-		p.next()
+	if len(p.lookupSet) == 0 {
+		p.pos = startPos + 1
+		s := tok.Surface
+		return DisplayToken{
+			Surface: s,
+			Lookup:  &s,
+		}, true
 	}
 
-	merged := surface.String()
-
-	if p.lookupSet == nil || p.lookupSet[merged] {
+	if prefix, n := p.findLongestPrefix(nouns); n > 0 {
+		p.pos = startPos + n
 		return DisplayToken{
-			Surface: merged,
-			Lookup:  &merged,
+			Surface: prefix,
+			Lookup:  &prefix,
 		}, true
 	}
 
@@ -419,6 +418,31 @@ func (p *parser) parseNounPhrase() (DisplayToken, bool) {
 		Surface: s,
 		Lookup:  &s,
 	}, true
+}
+
+func (p *parser) collectNounPhrase() []RawToken {
+	var nouns []RawToken
+	for i := p.pos; i < len(p.tokens); i++ {
+		if p.tokens[i].POSMajor != KindNoun && p.tokens[i].POSMajor != KindPrefix {
+			break
+		}
+		nouns = append(nouns, p.tokens[i])
+	}
+	return nouns
+}
+
+func (p *parser) findLongestPrefix(nouns []RawToken) (string, int) {
+	for i := len(nouns); i >= 1; i-- {
+		var prefix strings.Builder
+		for j := 0; j < i; j++ {
+			prefix.WriteString(nouns[j].Surface)
+		}
+		prefixStr := prefix.String()
+		if p.lookupSet[prefixStr] {
+			return prefixStr, i
+		}
+	}
+	return "", 0
 }
 
 // parseParticlePhrase covers:

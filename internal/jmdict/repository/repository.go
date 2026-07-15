@@ -7,5 +7,5 @@ type Repository interface {
 
 	FindByKana(text string) ([]Entry, error)
 
-	// TODO: implement FindALlForms
+	FindAllForms() ([]string, error)
 }

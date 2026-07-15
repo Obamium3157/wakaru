@@ -57,3 +57,9 @@ ORDER BY
     s.display_order,
     g.display_order;
 `
+
+const findAllFormsQuery = `
+SELECT DISTINCT text FROM kanji
+UNION
+SELECT DISTINCT text FROM kana;
+`

@@ -11,7 +11,7 @@ type TokenizeResult struct {
 	BaseForm string
 }
 
-func Tokenize(sentence string) ([]TokenizeResult, error) {
+func Tokenize(sentence string) ([]tokenizer.Token, error) {
 	t, err := tokenizer.New(ipa.Dict(), tokenizer.OmitBosEos())
 	if err != nil {
 		return nil, err
@@ -19,13 +19,5 @@ func Tokenize(sentence string) ([]TokenizeResult, error) {
 
 	tokens := t.Tokenize(sentence)
 
-	var result []TokenizeResult
-
-	for _, token := range tokens {
-		baseForm, _ := token.BaseForm()
-
-		result = append(result, TokenizeResult{Token: token.Surface, BaseForm: baseForm})
-	}
-
-	return result, nil
+	return tokens, nil
 }
