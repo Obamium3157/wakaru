@@ -3,17 +3,17 @@ package main
 import (
 	"context"
 	"database/sql"
-	"fmt"
-	"log"
-	"os"
 	"time"
 
 	"wakaru/internal/examples"
 	"wakaru/internal/jmdict/repository"
 	"wakaru/internal/tokenize"
-
-	"github.com/joho/godotenv"
 )
+
+type Result struct {
+	Entries  []repository.Entry
+	Examples []examples.Example
+}
 
 type Wakaru struct {
 	db             *sql.DB
@@ -23,13 +23,16 @@ type Wakaru struct {
 	lookupSet map[string]bool
 }
 
-func NewWakaru() (*Wakaru, error) {
-	db, err := openDB()
+func NewWakaru(sqlDriverName string, dbPath string) (*Wakaru, error) {
+	db, err := openDB(sqlDriverName, dbPath)
 	if err != nil {
 		return nil, err
 	}
 
-	repo := createRepo(db)
+	repo, err := createRepo(db)
+	if err != nil {
+		return nil, err
+	}
 
 	client := examples.NewClient()
 
@@ -48,44 +51,35 @@ func NewWakaru() (*Wakaru, error) {
 	}, nil
 }
 
+func (w *Wakaru) Run(input string) ([]Result, error) {
+	tokens, err := w.getDisplayTokens(input)
+	if err != nil {
+		return nil, err
+	}
+
+	var results []Result
+	for _, t := range tokens {
+		entries, err := w.FindEntries(t)
+		if err != nil {
+			return nil, err
+		}
+
+		examples, err := w.FindExamples(t)
+		if err != nil {
+			return nil, err
+		}
+
+		results = append(results, Result{entries, examples})
+	}
+
+	return results, nil
+}
+
 func (w *Wakaru) Close() error {
 	return w.db.Close()
 }
 
-func PrintEntries(entries []repository.Entry) {
-	for _, entry := range entries {
-		fmt.Printf("ID: %s\n", entry.ID)
-
-		fmt.Println("Kanji:")
-		for _, k := range entry.Kanji {
-			fmt.Printf("  %s\n", k)
-		}
-
-		fmt.Println("Kana:")
-		for _, k := range entry.Kana {
-			fmt.Printf("  %s\n", k)
-		}
-
-		fmt.Println("Translations:")
-		for _, t := range entry.Translations {
-			fmt.Printf("  Sense %d\n", t.SenseID)
-
-			for _, g := range t.Glosses {
-				fmt.Printf("    [%s] %s\n", g.Lang, g.Text)
-			}
-		}
-
-		fmt.Println()
-	}
-}
-
-func PrintExamples(examples []examples.Example) {
-	for idx, example := range examples {
-		fmt.Printf("  Example #%d: %s\n", idx, example.Text)
-	}
-}
-
-func (w *Wakaru) GetDisplayTokens(input string) ([]tokenize.DisplayToken, error) {
+func (w *Wakaru) getDisplayTokens(input string) ([]tokenize.DisplayToken, error) {
 	kagomeTokens, err := tokenize.Tokenize(input)
 	if err != nil {
 		return nil, err
@@ -125,12 +119,8 @@ func (w *Wakaru) FindExamples(t tokenize.DisplayToken) ([]examples.Example, erro
 	return examples, nil
 }
 
-func openDB() (*sql.DB, error) {
-	if err := godotenv.Load(); err != nil {
-		return nil, err
-	}
-
-	db, err := sql.Open("sqlite3", os.Getenv("DB_PATH"))
+func openDB(driverName string, dbPath string) (*sql.DB, error) {
+	db, err := sql.Open(driverName, dbPath)
 	if err != nil {
 		return nil, err
 	}
@@ -146,12 +136,12 @@ func openDB() (*sql.DB, error) {
 	return db, nil
 }
 
-func createRepo(db *sql.DB) *repository.SQLiteRepo {
+func createRepo(db *sql.DB) (repository.Repository, error) {
 	repo, err := repository.NewSQLiteRepo(db)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
-	return repo
+	return repo, nil
 }
 
 func makeLookupSet(forms []string) map[string]bool {
