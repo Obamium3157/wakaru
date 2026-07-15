@@ -1,19 +1,11 @@
 package main
 
-// TODO: При работе с горутинами обрабатывать ситемные сигналы
-
 import (
-	"context"
-	"database/sql"
-	"fmt"
 	"log"
 	"os"
-	"time"
 
-	"wakaru/internal/examples"
-	"wakaru/internal/jmdict/repository"
+	"wakaru/internal/tokenize"
 
-	"github.com/joho/godotenv"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -23,88 +15,38 @@ func main() {
 	}
 	input := os.Args[1]
 
-	db := openDB()
+	w, err := NewWakaru()
+	if err != nil {
+		log.Fatal(err)
+	}
 	defer func() {
-		_ = db.Close()
+		_ = w.Close()
 	}()
 
-	repo := createRepo(db)
-
-	entries, err := repo.Find(input)
+	displayTokens, err := w.GetDisplayTokens(input)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	printEntries(entries)
-
-	tatoebaClient := examples.NewClient()
-
-	examples, err := tatoebaClient.Search(input)
-	if err != nil {
+	if err := run(w, displayTokens); err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("Examples: ")
-	printExamples(examples)
 }
 
-func openDB() *sql.DB {
-	if err := godotenv.Load(); err != nil {
-		log.Fatal(err)
-	}
-
-	db, err := sql.Open("sqlite3", os.Getenv("DB_PATH"))
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
-	if err := db.PingContext(ctx); err != nil {
-		_ = db.Close()
-		log.Fatal(err)
-	}
-
-	return db
-}
-
-func createRepo(db *sql.DB) repository.Repository {
-	repo, err := repository.NewSQLiteRepo(db)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return repo
-}
-
-func printEntries(entries []repository.Entry) {
-	for _, entry := range entries {
-		fmt.Printf("ID: %s\n", entry.ID)
-
-		fmt.Println("Kanji:")
-		for _, k := range entry.Kanji {
-			fmt.Printf("  %s\n", k)
+func run(w *Wakaru, ts []tokenize.DisplayToken) error {
+	for _, t := range ts {
+		entries, err := w.FindEntries(t)
+		if err != nil {
+			return err
 		}
+		PrintEntries(entries)
 
-		fmt.Println("Kana:")
-		for _, k := range entry.Kana {
-			fmt.Printf("  %s\n", k)
+		examples, err := w.FindExamples(t)
+		if err != nil {
+			return err
 		}
-
-		fmt.Println("Translations:")
-		for _, t := range entry.Translations {
-			fmt.Printf("  Sense %d\n", t.SenseID)
-
-			for _, g := range t.Glosses {
-				fmt.Printf("    [%s] %s\n", g.Lang, g.Text)
-			}
-		}
-
-		fmt.Println()
+		PrintExamples(examples)
 	}
-}
 
-func printExamples(examples []examples.Example) {
-	for idx, example := range examples {
-		fmt.Printf("  Example #%d: %s\n", idx, example.Text)
-	}
+	return nil
 }
