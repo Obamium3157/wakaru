@@ -1,11 +1,13 @@
 package repository
 
+import "context"
+
 type Repository interface {
-	Find(text string) ([]Entry, error)
+	Find(ctx context.Context, text string) ([]Entry, error)
 
-	FindByKanji(text string) ([]Entry, error)
+	FindByKanji(ctx context.Context, text string) ([]Entry, error)
 
-	FindByKana(text string) ([]Entry, error)
+	FindByKana(ctx context.Context, text string) ([]Entry, error)
 
-	FindAllForms() ([]string, error)
+	FindAllForms(ctx context.Context) ([]string, error)
 }

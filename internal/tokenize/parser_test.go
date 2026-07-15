@@ -149,6 +149,7 @@ func TestParseSuruVerb(t *testing.T) {
 		{"with causative passive", "勉強させられている", nil, []tokenExpect{
 			expect("勉強させられている", "勉強"),
 		}},
+		{"negative: standalone sahen noun", "発表", nil, nil},
 	})
 }
 

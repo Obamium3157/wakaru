@@ -2,6 +2,7 @@
 package repository
 
 import (
+	"context"
 	"database/sql"
 )
 
@@ -51,35 +52,35 @@ func NewSQLiteRepo(db *sql.DB) (*SQLiteRepo, error) {
 	return repo, nil
 }
 
-func (r *SQLiteRepo) FindByKanji(text string) ([]Entry, error) {
-	rows, err := r.findByKanji.Query(text)
+func (r *SQLiteRepo) FindByKanji(ctx context.Context, text string) ([]Entry, error) {
+	rows, err := r.findByKanji.QueryContext(ctx, text)
 	if err != nil {
 		return nil, err
 	}
 
-	return r.loadEntries(rows)
+	return r.loadEntries(ctx, rows)
 }
 
-func (r *SQLiteRepo) FindByKana(text string) ([]Entry, error) {
-	rows, err := r.findByKana.Query(text)
+func (r *SQLiteRepo) FindByKana(ctx context.Context, text string) ([]Entry, error) {
+	rows, err := r.findByKana.QueryContext(ctx, text)
 	if err != nil {
 		return nil, err
 	}
 
-	return r.loadEntries(rows)
+	return r.loadEntries(ctx, rows)
 }
 
-func (r *SQLiteRepo) Find(text string) ([]Entry, error) {
-	rows, err := r.find.Query(text, text)
+func (r *SQLiteRepo) Find(ctx context.Context, text string) ([]Entry, error) {
+	rows, err := r.find.QueryContext(ctx, text, text)
 	if err != nil {
 		return nil, err
 	}
 
-	return r.loadEntries(rows)
+	return r.loadEntries(ctx, rows)
 }
 
-func (r *SQLiteRepo) FindAllForms() ([]string, error) {
-	rows, err := r.findAllForms.Query()
+func (r *SQLiteRepo) FindAllForms(ctx context.Context) ([]string, error) {
+	rows, err := r.findAllForms.QueryContext(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +105,7 @@ func (r *SQLiteRepo) FindAllForms() ([]string, error) {
 	return forms, nil
 }
 
-func (r *SQLiteRepo) loadEntries(rows *sql.Rows) ([]Entry, error) {
+func (r *SQLiteRepo) loadEntries(ctx context.Context, rows *sql.Rows) ([]Entry, error) {
 	defer func() {
 		_ = rows.Close()
 	}()
@@ -118,7 +119,7 @@ func (r *SQLiteRepo) loadEntries(rows *sql.Rows) ([]Entry, error) {
 			return nil, err
 		}
 
-		entry, err := r.loadEntry(wordID)
+		entry, err := r.loadEntry(ctx, wordID)
 		if err != nil {
 			return nil, err
 		}
@@ -133,8 +134,8 @@ func (r *SQLiteRepo) loadEntries(rows *sql.Rows) ([]Entry, error) {
 	return entries, nil
 }
 
-func (r *SQLiteRepo) loadKanji(wordID string) ([]string, error) {
-	rows, err := r.findKanji.Query(wordID)
+func (r *SQLiteRepo) loadKanji(ctx context.Context, wordID string) ([]string, error) {
+	rows, err := r.findKanji.QueryContext(ctx, wordID)
 	if err != nil {
 		return nil, err
 	}
@@ -161,8 +162,8 @@ func (r *SQLiteRepo) loadKanji(wordID string) ([]string, error) {
 	return result, nil
 }
 
-func (r *SQLiteRepo) loadKana(wordID string) ([]string, error) {
-	rows, err := r.findKana.Query(wordID)
+func (r *SQLiteRepo) loadKana(ctx context.Context, wordID string) ([]string, error) {
+	rows, err := r.findKana.QueryContext(ctx, wordID)
 	if err != nil {
 		return nil, err
 	}
@@ -189,8 +190,8 @@ func (r *SQLiteRepo) loadKana(wordID string) ([]string, error) {
 	return result, nil
 }
 
-func (r *SQLiteRepo) loadTranslations(wordID string) ([]Translation, error) {
-	rows, err := r.findTranslations.Query(wordID)
+func (r *SQLiteRepo) loadTranslations(ctx context.Context, wordID string) ([]Translation, error) {
+	rows, err := r.findTranslations.QueryContext(ctx, wordID)
 	if err != nil {
 		return nil, err
 	}
@@ -235,18 +236,18 @@ func (r *SQLiteRepo) loadTranslations(wordID string) ([]Translation, error) {
 	return translations, nil
 }
 
-func (r *SQLiteRepo) loadEntry(wordID string) (Entry, error) {
-	kanji, err := r.loadKanji(wordID)
+func (r *SQLiteRepo) loadEntry(ctx context.Context, wordID string) (Entry, error) {
+	kanji, err := r.loadKanji(ctx, wordID)
 	if err != nil {
 		return Entry{}, err
 	}
 
-	kana, err := r.loadKana(wordID)
+	kana, err := r.loadKana(ctx, wordID)
 	if err != nil {
 		return Entry{}, err
 	}
 
-	translations, err := r.loadTranslations(wordID)
+	translations, err := r.loadTranslations(ctx, wordID)
 	if err != nil {
 		return Entry{}, err
 	}

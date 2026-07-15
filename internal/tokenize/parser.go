@@ -266,11 +266,13 @@ func (p *parser) parseSuruVerb() (DisplayToken, bool) {
 		return DisplayToken{}, false
 	}
 
+	startPos := p.pos
 	start := p.next()
 	var surface strings.Builder
 	surface.WriteString(start.Surface)
 
 	if p.eof() || p.peek().BaseForm != "する" {
+		p.pos = startPos
 		return DisplayToken{}, false
 	}
 	surface.WriteString(p.next().Surface)

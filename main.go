@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
 
 	"wakaru/internal/examples"
 	"wakaru/internal/jmdict/repository"
@@ -15,9 +17,12 @@ import (
 func main() {
 	mustLoadEnv()
 
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer cancel()
+
 	input := mustGetInputFromArgs()
 
-	w, err := NewWakaru("sqlite3", os.Getenv("DB_PATH"))
+	w, err := NewWakaru(ctx, "sqlite3", os.Getenv("DB_PATH"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -27,14 +32,16 @@ func main() {
 		}
 	}()
 
-	results, err := w.Run(input)
+	dispStr, results, err := w.Run(ctx, input)
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	fmt.Println(dispStr, ": ")
 	for _, r := range results {
 		printEntries(r.Entries)
 		printExamples(r.Examples)
+		fmt.Println("------------------------------")
 	}
 }
 
@@ -52,6 +59,11 @@ func mustGetInputFromArgs() string {
 }
 
 func printEntries(entries []repository.Entry) {
+	if len(entries) == 0 {
+		log.Println("empty entries array")
+		return
+	}
+
 	for _, entry := range entries {
 		fmt.Printf("ID: %s\n", entry.ID)
 
@@ -79,7 +91,11 @@ func printEntries(entries []repository.Entry) {
 }
 
 func printExamples(examples []examples.Example) {
+	if len(examples) == 0 {
+		log.Println("empty examples array")
+		return
+	}
 	for idx, example := range examples {
-		fmt.Printf("  Example #%d: %s\n", idx, example.Text)
+		fmt.Printf("  Example #%d: %s\n", idx+1, example.Text)
 	}
 }

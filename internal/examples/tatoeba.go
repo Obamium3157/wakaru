@@ -2,11 +2,23 @@
 package examples
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
+)
+
+const (
+	relevanceSO string = "relevance"
+	wordsSO            = "words"
+	revWordsSO         = "-words"
+	createdSO          = "created"
+	revCreated         = "-created"
+	modifiedSO         = "modified"
+	randomSO           = "random"
 )
 
 type sentence struct {
@@ -24,15 +36,23 @@ type Example struct {
 	Text string
 }
 
-func (c *Client) Search(word string) ([]Example, error) {
-	u, err := url.Parse(c.baseURL)
+type SearchParameters struct {
+	Word         string
+	MinWordCount *int
+	MaxWordCount *int
+	Sort         string
+	Limit        *int
+}
+
+func (c *Client) Search(ctx context.Context, params SearchParameters) ([]Example, error) {
+	url, err := url.Parse(c.baseURL)
 	if err != nil {
 		return nil, err
 	}
 
-	setRawQuery(u, word)
+	setRawQuery(url, params)
 
-	resp, err := c.client.Get(u.String())
+	resp, err := c.getResponse(ctx, url.String())
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +66,7 @@ func (c *Client) Search(word string) ([]Example, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("tatoeba error: %s: %s", resp.Status, body)
+		return nil, fmt.Errorf("tatoeba  error: %s: %s	", resp.Status, body)
 	}
 
 	var result tatoebaResponse
@@ -59,11 +79,44 @@ func (c *Client) Search(word string) ([]Example, error) {
 	return examples, nil
 }
 
-func setRawQuery(u *url.URL, word string) {
+func (c *Client) getResponse(ctx context.Context, url string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+func setRawQuery(u *url.URL, params SearchParameters) {
 	q := u.Query()
 	q.Set("lang", langCode)
-	q.Set("q", word)
-	q.Set("sort", "relevance")
+	q.Set("q", params.Word)
+	if params.MinWordCount != nil && params.MaxWordCount == nil {
+		q.Set("word_count", fmt.Sprintf("%d-", *params.MinWordCount))
+	}
+	if params.MinWordCount == nil && params.MinWordCount != nil {
+		q.Set("word_count", fmt.Sprintf("-%d", *params.MaxWordCount))
+	}
+	if params.MinWordCount != nil && params.MaxWordCount != nil {
+		minC := *params.MinWordCount
+		maxC := *params.MaxWordCount
+
+		if minC == maxC {
+			q.Set("word_count", strconv.Itoa(*params.MinWordCount))
+		} else {
+			q.Set("word_count", fmt.Sprintf("%d-%d", minC, maxC))
+		}
+	}
+	if params.Limit != nil {
+		q.Set("limit", strconv.Itoa(*params.Limit))
+	}
+	q.Set("sort", params.Sort)
 	u.RawQuery = q.Encode()
 }
 

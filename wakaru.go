@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"time"
 
 	"wakaru/internal/examples"
@@ -23,7 +24,7 @@ type Wakaru struct {
 	lookupSet map[string]bool
 }
 
-func NewWakaru(sqlDriverName string, dbPath string) (*Wakaru, error) {
+func NewWakaru(ctx context.Context, sqlDriverName string, dbPath string) (*Wakaru, error) {
 	db, err := openDB(sqlDriverName, dbPath)
 	if err != nil {
 		return nil, err
@@ -36,7 +37,7 @@ func NewWakaru(sqlDriverName string, dbPath string) (*Wakaru, error) {
 
 	client := examples.NewClient()
 
-	forms, err := repo.FindAllForms()
+	forms, err := repo.FindAllForms(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -51,28 +52,28 @@ func NewWakaru(sqlDriverName string, dbPath string) (*Wakaru, error) {
 	}, nil
 }
 
-func (w *Wakaru) Run(input string) ([]Result, error) {
+func (w *Wakaru) Run(ctx context.Context, input string) (string, []Result, error) {
 	tokens, err := w.getDisplayTokens(input)
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 
 	var results []Result
 	for _, t := range tokens {
-		entries, err := w.FindEntries(t)
+		entries, err := w.FindEntries(ctx, t)
 		if err != nil {
-			return nil, err
+			return "", nil, err
 		}
 
-		examples, err := w.FindExamples(t)
+		examples, err := w.FindExamples(ctx, t)
 		if err != nil {
-			return nil, err
+			return "", nil, err
 		}
 
 		results = append(results, Result{entries, examples})
 	}
 
-	return results, nil
+	return formDisplaySearchString(tokens), results, nil
 }
 
 func (w *Wakaru) Close() error {
@@ -93,12 +94,12 @@ func (w *Wakaru) getDisplayTokens(input string) ([]tokenize.DisplayToken, error)
 	return displayTokens, nil
 }
 
-func (w *Wakaru) FindEntries(t tokenize.DisplayToken) ([]repository.Entry, error) {
+func (w *Wakaru) FindEntries(ctx context.Context, t tokenize.DisplayToken) ([]repository.Entry, error) {
 	if t.Lookup == nil {
 		return nil, nil
 	}
 
-	entries, err := w.repo.Find(*t.Lookup)
+	entries, err := w.repo.Find(ctx, *t.Lookup)
 	if err != nil {
 		return nil, err
 	}
@@ -106,12 +107,19 @@ func (w *Wakaru) FindEntries(t tokenize.DisplayToken) ([]repository.Entry, error
 	return entries, nil
 }
 
-func (w *Wakaru) FindExamples(t tokenize.DisplayToken) ([]examples.Example, error) {
+func (w *Wakaru) FindExamples(ctx context.Context, t tokenize.DisplayToken) ([]examples.Example, error) {
 	if t.Lookup == nil {
 		return nil, nil
 	}
 
-	examples, err := w.examplesClient.Search(*t.Lookup)
+	// examples, err := w.examplesClient.Search(ctx, *t.Lookup)
+	examples, err := w.examplesClient.Search(ctx, examples.SearchParameters{
+		Word:         *t.Lookup,
+		MinWordCount: new(8),
+		MaxWordCount: nil,
+		Sort:         "relevance",
+		Limit:        new(5),
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -151,4 +159,15 @@ func makeLookupSet(forms []string) map[string]bool {
 	}
 
 	return lookupSet
+}
+
+func formDisplaySearchString(dt []tokenize.DisplayToken) string {
+	var b strings.Builder
+	for i, t := range dt {
+		if i > 0 {
+			b.WriteString("  ")
+		}
+		b.WriteString(t.Surface)
+	}
+	return b.String()
 }
