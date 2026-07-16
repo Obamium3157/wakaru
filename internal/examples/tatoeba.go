@@ -6,9 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 )
 
 const (
@@ -19,6 +21,8 @@ const (
 	revCreated         = "-created"
 	modifiedSO         = "modified"
 	randomSO           = "random"
+
+	amountOfRetries int = 2
 )
 
 type sentence struct {
@@ -49,34 +53,55 @@ func (c *Client) Search(ctx context.Context, params SearchParameters) ([]Example
 	if err != nil {
 		return nil, err
 	}
-
 	setRawQuery(url, params)
 
-	resp, err := c.getResponse(ctx, url.String())
-	if err != nil {
-		return nil, err
+	var lastErr error
+
+	for attempt := range amountOfRetries {
+		if attempt > 0 {
+			backoff := time.Duration(1<<uint(attempt-1)) * time.Second
+			select {
+			case <-time.After(backoff):
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
+		}
+
+		reqStart := time.Now()
+		resp, err := c.getResponse(ctx, url.String())
+		if err != nil {
+			log.Printf("tatoeba attempt %d for %q failed: %v (%v)", attempt, params.Word, err, time.Since(reqStart))
+			lastErr = err
+			continue
+		}
+
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			lastErr = err
+			continue
+		}
+
+		if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500 {
+			lastErr = fmt.Errorf("tatoeba error: %s: %s", resp.Status, body)
+			continue
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("tatoeba error: %s: %s", resp.Status, body)
+		}
+
+		var result tatoebaResponse
+		if err := json.Unmarshal(body, &result); err != nil {
+			return nil, err
+		}
+
+		// log.Printf("tatoeba attempt %d for %q: %s (%v)", attempt, params.Word, resp.Status, time.Since(reqStart))
+
+		return formExamples(result), nil
 	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("tatoeba  error: %s: %s	", resp.Status, body)
-	}
-
-	var result tatoebaResponse
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, err
-	}
-
-	examples := formExamples(result)
-
-	return examples, nil
+	return nil, lastErr
 }
 
 func (c *Client) getResponse(ctx context.Context, url string) (*http.Response, error) {

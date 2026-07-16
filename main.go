@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"time"
 
 	"wakaru/internal/examples"
 	"wakaru/internal/jmdict/repository"
@@ -28,13 +29,16 @@ func main() {
 	}
 	defer w.Close()
 
+	start := time.Now()
 	dispStr, results, err := w.Run(ctx, input)
+	elapsed := time.Since(start)
 	if err != nil {
 		if ctx.Err() != nil {
 			os.Exit(0)
 		}
 		log.Fatal(err)
 	}
+	log.Printf("done in %v", elapsed)
 
 	fmt.Println(dispStr, ": ")
 	for _, r := range results {

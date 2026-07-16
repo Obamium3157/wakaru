@@ -138,7 +138,65 @@ func TestParseVerbPhrase(t *testing.T) {
 		{"nikui suffix", "読みにくい", nil, []tokenExpect{
 			expect("読みにくい", "読む"),
 		}},
+		{"nai verb that is an adjective", "詰まらない", map[string]bool{"詰まらない": true}, []tokenExpect{
+			expect("詰まらない", "詰まらない"),
+		}},
+		{"nai verb that is not an adjective", "走れなくなった", nil, []tokenExpect{
+			expect("走れなく", "走れる"),
+			expect("なった", "なる"),
+		}},
+		{"go-dan potential form", "話せる", map[string]bool{"話す": true}, []tokenExpect{
+			expect("話せる", "話す"),
+		}},
+		{"pseudo-go-dan potential verb", "食べる", map[string]bool{"食べる": true}, []tokenExpect{
+			expect("食べる", "食べる"),
+		}},
 	})
+}
+
+func TestGetPotentialGoDanInfinitive(t *testing.T) {
+	expected := []struct {
+		Surface  string
+		BaseForm string
+	}{
+		{
+			"話せる",
+			"話す",
+		},
+		{
+			"聞ける",
+			"聞く",
+		},
+		{
+			"泳げる",
+			"泳ぐ",
+		},
+		{
+			"遊べる",
+			"遊ぶ",
+		},
+		{
+			"待てる",
+			"待つ",
+		},
+		{
+			"飲める",
+			"飲む",
+		},
+		{
+			"買える",
+			"買う",
+		},
+		{
+			"死ねる",
+			"死ぬ",
+		},
+	}
+
+	for _, e := range expected {
+		bf := getPotentialGoDanInfinitive(e.Surface)
+		assert.Equal(t, e.BaseForm, bf)
+	}
 }
 
 func TestParseSuruVerb(t *testing.T) {

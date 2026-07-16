@@ -8,7 +8,7 @@ import (
 const (
 	defaultBaseURL = "https://api.tatoeba.org/v1/sentences"
 	langCode       = "jpn"
-	defaultTimeout = 10 * time.Second
+	defaultTimeout = 12 * time.Second
 )
 
 type Client struct {

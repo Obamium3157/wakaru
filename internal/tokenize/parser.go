@@ -219,6 +219,12 @@ func (p *parser) parseVerbPhrase() (DisplayToken, bool) {
 	var surface strings.Builder
 	surface.WriteString(start.Surface)
 
+	lookup := start.BaseForm
+
+	if checkIsGoDanVerbPotential(start) {
+		lookup = processPotentialVerbBaseForm(start, p.lookupSet)
+	}
+
 	for !p.eof() {
 		next := p.peek()
 		consume := false
@@ -242,11 +248,93 @@ func (p *parser) parseVerbPhrase() (DisplayToken, bool) {
 		p.next()
 	}
 
-	lookup := start.BaseForm
+	s := surface.String()
+
+	if p.lookupSet[s] {
+		return DisplayToken{
+			Surface: surface.String(),
+			Lookup:  &s,
+		}, true
+	}
+
 	return DisplayToken{
 		Surface: surface.String(),
 		Lookup:  &lookup,
 	}, true
+}
+
+func checkIsGoDanVerbPotential(rt RawToken) bool {
+	s := rt.Surface
+	return strings.HasSuffix(s, "せる") ||
+		strings.HasSuffix(s, "ける") ||
+		strings.HasSuffix(s, "げる") ||
+		strings.HasSuffix(s, "べる") || // 食べる ??
+		strings.HasSuffix(s, "てる") ||
+		strings.HasSuffix(s, "める") ||
+		strings.HasSuffix(s, "える") ||
+		strings.HasSuffix(s, "ねる")
+}
+
+// processPotentialVerbBaseForm checks if verb is in potential form and
+// if so, returns infinitive of a verb as a baseForm
+//
+// Use cases:
+//
+// 1. rt is in potential form:
+//
+//	話せる -> 話す
+//
+// 2. rt looks like it is in potential form, but it isn't:
+//
+//	見せる -> 見せる
+//
+// 3. rt is a stem of potential form:
+//
+//	話せ -> 話す
+func processPotentialVerbBaseForm(rt RawToken, lookupSet map[string]bool) string {
+	initialBaseForm := rt.BaseForm
+	if lookupSet[initialBaseForm] {
+		return initialBaseForm
+	}
+
+	inf := getPotentialGoDanInfinitive(initialBaseForm)
+	if lookupSet[inf] {
+		return inf
+	}
+
+	return initialBaseForm
+}
+
+func getPotentialGoDanInfinitive(verb string) string {
+	runes := []rune(verb)
+	lv := len(runes)
+	if lv < 2 {
+		return verb
+	}
+
+	starting := string(runes[:lv-2])
+	ending := string(runes[lv-2:])
+
+	switch ending {
+	case "せる":
+		return starting + "す"
+	case "ける":
+		return starting + "く"
+	case "げる":
+		return starting + "ぐ"
+	case "べる":
+		return starting + "ぶ"
+	case "てる":
+		return starting + "つ"
+	case "める":
+		return starting + "む"
+	case "える":
+		return starting + "う"
+	case "ねる":
+		return starting + "ぬ"
+	default:
+		return verb
+	}
 }
 
 // parseSuruVerb covers:

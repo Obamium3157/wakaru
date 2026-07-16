@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"database/sql"
+	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"wakaru/internal/examples"
@@ -12,6 +14,8 @@ import (
 
 	"golang.org/x/sync/errgroup"
 )
+
+const maxAmountOfChannels = 5
 
 type Result struct {
 	Entries  []repository.Entry
@@ -23,7 +27,9 @@ type Wakaru struct {
 	repo           repository.Repository
 	examplesClient *examples.Client
 
-	lookupSet map[string]bool
+	lookupSet    map[string]bool
+	httpSem      chan struct{}
+	exampleCache sync.Map
 }
 
 func NewWakaru(ctx context.Context, sqlDriverName string, dbPath string) (*Wakaru, error) {
@@ -51,6 +57,7 @@ func NewWakaru(ctx context.Context, sqlDriverName string, dbPath string) (*Wakar
 		repo:           repo,
 		examplesClient: client,
 		lookupSet:      lookupSet,
+		httpSem:        make(chan struct{}, maxAmountOfChannels),
 	}, nil
 }
 
@@ -60,23 +67,15 @@ func (w *Wakaru) Run(ctx context.Context, input string) (string, []Result, error
 		return "", nil, err
 	}
 
-	// var results []Result
-	// for _, t := range tokens {
-	// 	entries, err := w.FindEntries(ctx, t)
-	// 	if err != nil {
-	// 		return "", nil, err
-	// 	}
-	//
-	// 	examples, err := w.FindExamples(ctx, t)
-	// 	if err != nil {
-	// 		return "", nil, err
-	// 	}
-	//
-	// 	results = append(results, Result{entries, examples})
-	// }
+	httpTokens := 0
+	for _, t := range tokens {
+		if t.Lookup != nil {
+			httpTokens++
+		}
+	}
+	log.Printf("tokens: %d total, %d with lookup", len(tokens), httpTokens)
 
 	results := make([]Result, len(tokens))
-
 	g, ctx := errgroup.WithContext(ctx)
 
 	for i, t := range tokens {
@@ -85,14 +84,8 @@ func (w *Wakaru) Run(ctx context.Context, input string) (string, []Result, error
 			if err != nil {
 				return err
 			}
-
-			examples, err := w.FindExamples(ctx, t)
-			if err != nil {
-				return err
-			}
-
+			examples := w.FindExamples(ctx, t)
 			results[i] = Result{entries, examples}
-
 			return nil
 		})
 	}
@@ -100,7 +93,6 @@ func (w *Wakaru) Run(ctx context.Context, input string) (string, []Result, error
 	if err := g.Wait(); err != nil {
 		return "", nil, err
 	}
-
 	return formDisplaySearchString(tokens), results, nil
 }
 
@@ -135,12 +127,26 @@ func (w *Wakaru) FindEntries(ctx context.Context, t tokenize.DisplayToken) ([]re
 	return entries, nil
 }
 
-func (w *Wakaru) FindExamples(ctx context.Context, t tokenize.DisplayToken) ([]examples.Example, error) {
+func (w *Wakaru) FindExamples(ctx context.Context, t tokenize.DisplayToken) []examples.Example {
 	if t.Lookup == nil {
-		return nil, nil
+		return nil
 	}
 
-	// examples, err := w.examplesClient.Search(ctx, *t.Lookup)
+	if cached, ok := w.exampleCache.Load(*t.Lookup); ok {
+		return cached.([]examples.Example)
+	}
+
+	select {
+	case w.httpSem <- struct{}{}:
+		defer func() { <-w.httpSem }()
+	case <-ctx.Done():
+		return nil
+	}
+
+	if cached, ok := w.exampleCache.Load(*t.Lookup); ok {
+		return cached.([]examples.Example)
+	}
+
 	examples, err := w.examplesClient.Search(ctx, examples.SearchParameters{
 		Word:         *t.Lookup,
 		MinWordCount: new(8),
@@ -149,10 +155,13 @@ func (w *Wakaru) FindExamples(ctx context.Context, t tokenize.DisplayToken) ([]e
 		Limit:        new(5),
 	})
 	if err != nil {
-		return nil, err
+		log.Printf("tatoeba lookup failed for %q: %v", *t.Lookup, err)
+		return nil
 	}
 
-	return examples, nil
+	w.exampleCache.Store(*t.Lookup, examples)
+
+	return examples
 }
 
 func openDB(driverName string, dbPath string) (*sql.DB, error) {
