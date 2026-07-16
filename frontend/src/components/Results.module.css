@@ -72,11 +72,6 @@
   font-size: 14px;
 }
 
-.examples li::before {
-  content: "\2022";
-  position: absolute;
-  left: 0;
-}
 
 .error {
   width: 100%;
