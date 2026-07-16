@@ -1,3 +1,5 @@
 /wakaru
 /.env
 /db/jmdict.db
+frontend/node_modules
+frontend/dist

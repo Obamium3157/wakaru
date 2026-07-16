@@ -1,4 +1,7 @@
-package main
+// Package wakaru provides Japanese text analysis by combining morphological
+// tokenization using Kagome, JMDict dictionary lookups, and example sentence
+// retrieval from the Tatoeba API.
+package wakaru
 
 import (
 	"context"
@@ -18,8 +21,8 @@ import (
 const maxAmountOfChannels = 5
 
 type Result struct {
-	Entries  []repository.Entry
-	Examples []examples.Example
+	Entries  []repository.Entry  `json:"entries"`
+	Examples []examples.Example  `json:"examples"`
 }
 
 type Wakaru struct {

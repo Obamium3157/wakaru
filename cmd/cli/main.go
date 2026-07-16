@@ -10,6 +10,7 @@ import (
 
 	"wakaru/internal/examples"
 	"wakaru/internal/jmdict/repository"
+	"wakaru/internal/wakaru"
 
 	"github.com/joho/godotenv"
 	_ "github.com/mattn/go-sqlite3"
@@ -23,7 +24,7 @@ func main() {
 
 	input := mustGetInputFromArgs()
 
-	w, err := NewWakaru(ctx, "sqlite3", os.Getenv("DB_PATH"))
+	w, err := wakaru.NewWakaru(ctx, "sqlite3", os.Getenv("DB_PATH"))
 	if err != nil {
 		log.Fatal(err)
 	}

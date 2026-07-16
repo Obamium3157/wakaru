@@ -1,0 +1,89 @@
+.displayString {
+  font-size: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #222;
+}
+
+.results {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.tokenCard {
+  border: 1px solid #222;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.entry {
+  margin-bottom: 12px;
+}
+
+.entry:last-child {
+  margin-bottom: 0;
+}
+
+.entryHeader {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.kanji {
+  font-size: 22px;
+}
+
+.kana {
+  font-size: 16px;
+}
+
+.translations {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sense {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.glosses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.gloss {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 15px;
+}
+
+
+.examples li {
+  position: relative;
+  padding-left: 12px;
+  margin-bottom: 4px;
+  font-size: 14px;
+}
+
+.examples li::before {
+  content: "\2022";
+  position: absolute;
+  left: 0;
+}
+
+.error {
+  width: 100%;
+  max-width: 640px;
+  padding: 16px;
+  border-radius: 8px;
+  background: red;
+  color: red;
+  font-size: 15px;
+}

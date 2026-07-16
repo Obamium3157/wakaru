@@ -36,8 +36,8 @@ type tatoebaResponse struct {
 }
 
 type Example struct {
-	ID   int
-	Text string
+	ID   int    `json:"id"`
+	Text string `json:"text"`
 }
 
 type SearchParameters struct {
