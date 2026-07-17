@@ -21,14 +21,11 @@ export function SearchInput({ onSubmit, loading }: SearchInputProps) {
     <form className={styles.searchForm} onSubmit={handleSubmit}>
       <input
         type="text"
-        placeholder="日本語を入力..."
+        placeholder="日本語の単語や文章を入力してください"
         value={value}
         onChange={(e) => setValue(e.target.value)}
         disabled={loading}
       />
-      <button type="submit" disabled={loading || !value.trim()}>
-        {loading ? "..." : "Translate"}
-      </button>
     </form>
   )
 }

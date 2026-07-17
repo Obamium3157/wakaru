@@ -28,8 +28,10 @@ function App() {
   return (
     <div className={styles.app}>
       <h1>wakaru</h1>
-      <SearchInput onSubmit={handleTranslate} loading={loading} />
-      <Results response={response} error={error} />
+      <div className={styles.content}>
+        <SearchInput onSubmit={handleTranslate} loading={loading} />
+        <Results response={response} error={error} />
+      </div>
     </div>
   );
 }

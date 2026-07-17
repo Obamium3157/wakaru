@@ -1,5 +1,18 @@
 .app {
-  padding: 48px 24px;
+  background-color: var(--color-bg);
+  max-width: 70%;
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.title {
+  color: var(--color-text);
+}
+
+.content {
+  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;

@@ -1,1 +1,27 @@
+:root {
+  --color-primary: #334155;
+  --color-primary-hover: #1E293B;
+  --color-accent: #EA580C;
 
+  --color-bg: #FCFCFD;
+  --color-surface: #FFFFFF;
+  --color-surface-alt: #F8FAFC;
+
+  --color-border: #E2E8F0;
+  --color-border-strong: #CBD5E1;
+
+  --color-text: #0F172A;
+  --color-text-secondary: #475569;
+  --color-text-muted: #64748B;
+
+  --color-success: #16A34A;
+  --color-warning: #D97706;
+  --color-danger: #DC2626;
+
+  --color-selection: #FFF7ED;
+  --color-hover: #F8FAFC;
+}
+
+* {
+  box-sizing: border-box;
+}
