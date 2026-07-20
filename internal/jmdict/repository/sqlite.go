@@ -20,6 +20,8 @@ type SQLiteRepo struct {
 	findTranslations *sql.Stmt
 
 	findAllForms *sql.Stmt
+
+	findKanaReadingsForKanji *sql.Stmt
 }
 
 func NewSQLiteRepo(db *sql.DB) (*SQLiteRepo, error) {
@@ -46,6 +48,9 @@ func NewSQLiteRepo(db *sql.DB) (*SQLiteRepo, error) {
 		return nil, err
 	}
 	if repo.findAllForms, err = db.Prepare(findAllFormsQuery); err != nil {
+		return nil, err
+	}
+	if repo.findKanaReadingsForKanji, err = db.Prepare(findKanaReadingsForKanjiQuery); err != nil {
 		return nil, err
 	}
 
@@ -252,10 +257,83 @@ func (r *SQLiteRepo) loadEntry(ctx context.Context, wordID string) (Entry, error
 		return Entry{}, err
 	}
 
+	kanjiReadings, err := r.loadKanaReadingsForKanji(ctx, wordID)
+	if err != nil {
+		return Entry{}, err
+	}
+
+	ruby := buildEntryRuby(kanji, kana, kanjiReadings)
+
 	return Entry{
 		ID:           wordID,
 		Kanji:        kanji,
 		Kana:         kana,
+		Ruby:         ruby,
 		Translations: translations,
 	}, nil
+}
+
+func (r *SQLiteRepo) loadKanaReadingsForKanji(ctx context.Context, wordID string) (map[string]string, error) {
+	rows, err := r.findKanaReadingsForKanji.QueryContext(ctx, wordID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = rows.Close()
+	}()
+
+	result := make(map[string]string)
+	var wildcardReading string
+
+	for rows.Next() {
+		var kanjiText, kanaText string
+		if err := rows.Scan(&kanjiText, &kanaText); err != nil {
+			return nil, err
+		}
+		if kanjiText == "*" {
+			if wildcardReading == "" {
+				wildcardReading = kanaText
+			}
+		} else {
+			if _, exists := result[kanjiText]; !exists {
+				result[kanjiText] = kanaText
+			}
+		}
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	if wildcardReading != "" {
+		for k := range result {
+			if result[k] == "" {
+				result[k] = wildcardReading
+			}
+		}
+	}
+
+	return result, nil
+}
+
+func buildEntryRuby(kanji []string, kana []string, kanjiReadings map[string]string) []RubySegment {
+	if len(kanji) == 0 {
+		return nil
+	}
+
+	firstKanji := kanji[0]
+
+	if reading, ok := kanjiReadings[firstKanji]; ok {
+		return BuildRubySegments(firstKanji, reading)
+	}
+
+	if wildcard, ok := kanjiReadings["*"]; ok {
+		return BuildRubySegments(firstKanji, wildcard)
+	}
+
+	if len(kana) > 0 {
+		return BuildRubySegments(firstKanji, kana[0])
+	}
+
+	return []RubySegment{{Text: firstKanji}}
 }

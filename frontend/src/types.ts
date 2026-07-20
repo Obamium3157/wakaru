@@ -12,7 +12,13 @@ export interface Entry {
   id: string;
   kanji: string[];
   kana: string[];
+  ruby?: RubySegment[];
   translations: Translation[];
+}
+
+export interface RubySegment {
+  text: string;
+  reading?: string;
 }
 
 export interface Translation {

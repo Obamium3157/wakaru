@@ -1,9 +1,15 @@
 package repository
 
+type RubySegment struct {
+	Text    string  `json:"text"`
+	Reading *string `json:"reading,omitempty"`
+}
+
 type Entry struct {
 	ID           string        `json:"id"`
 	Kanji        []string      `json:"kanji"`
 	Kana         []string      `json:"kana"`
+	Ruby         []RubySegment `json:"ruby,omitempty"`
 	Translations []Translation `json:"translations"`
 }
 
