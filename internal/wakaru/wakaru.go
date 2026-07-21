@@ -21,8 +21,8 @@ import (
 const maxAmountOfChannels = 5
 
 type Result struct {
-	Entries  []repository.Entry  `json:"entries"`
-	Examples []examples.Example  `json:"examples"`
+	Entries  []repository.Entry `json:"entries"`
+	Examples []examples.Example `json:"examples"`
 }
 
 type Wakaru struct {

@@ -17,20 +17,16 @@ type parseCase struct {
 }
 
 type tokenExpect struct {
-	Surface string
-	Lookup  *string
+	Surface      string
+	Lookup       *string
+	PartOfSpeech string
 }
 
-func expect(surface string, lookup string) tokenExpect {
+func expect(surface string, lookup string, partOfSpeech string) tokenExpect {
 	return tokenExpect{
 		surface,
 		&lookup,
-	}
-}
-
-func expectNoLookup(surface string) tokenExpect {
-	return tokenExpect{
-		Surface: surface,
+		partOfSpeech,
 	}
 }
 
@@ -99,6 +95,239 @@ func createTestParserWithLookup(t *testing.T, input string, lookupSet map[string
 	return p
 }
 
+func TestFindLongestPrefix(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		surfaces []string
+		lookup   map[string]bool
+		wantStr  string
+		wantN    int
+	}{
+		{
+			name:     "empty nouns slice",
+			surfaces: []string{},
+			lookup:   map[string]bool{"A": true},
+			wantStr:  "",
+			wantN:    0,
+		},
+		{
+			name:     "nil nouns slice",
+			surfaces: nil,
+			lookup:   map[string]bool{"A": true},
+			wantStr:  "",
+			wantN:    0,
+		},
+		{
+			name:     "single noun found",
+			surfaces: []string{"A"},
+			lookup:   map[string]bool{"A": true},
+			wantStr:  "A",
+			wantN:    1,
+		},
+		{
+			name:     "single noun not found",
+			surfaces: []string{"A"},
+			lookup:   map[string]bool{},
+			wantStr:  "",
+			wantN:    0,
+		},
+		{
+			name:     "two nouns full match",
+			surfaces: []string{"A", "B"},
+			lookup:   map[string]bool{"AB": true},
+			wantStr:  "AB",
+			wantN:    2,
+		},
+		{
+			name:     "two nouns only first matches",
+			surfaces: []string{"A", "B"},
+			lookup:   map[string]bool{"A": true},
+			wantStr:  "A",
+			wantN:    1,
+		},
+		{
+			name:     "two nouns none match",
+			surfaces: []string{"A", "B"},
+			lookup:   map[string]bool{},
+			wantStr:  "",
+			wantN:    0,
+		},
+		{
+			name:     "two nouns first not found but full found",
+			surfaces: []string{"A", "B"},
+			lookup:   map[string]bool{"AB": true, "B": true},
+			wantStr:  "AB",
+			wantN:    2,
+		},
+		{
+			name:     "three nouns full match",
+			surfaces: []string{"A", "B", "C"},
+			lookup:   map[string]bool{"ABC": true},
+			wantStr:  "ABC",
+			wantN:    3,
+		},
+		{
+			name:     "three nouns prefix of two matches",
+			surfaces: []string{"A", "B", "C"},
+			lookup:   map[string]bool{"AB": true},
+			wantStr:  "AB",
+			wantN:    2,
+		},
+		{
+			name:     "three nouns only first matches",
+			surfaces: []string{"A", "B", "C"},
+			lookup:   map[string]bool{"A": true},
+			wantStr:  "A",
+			wantN:    1,
+		},
+		{
+			name:     "three nouns none match",
+			surfaces: []string{"A", "B", "C"},
+			lookup:   map[string]bool{},
+			wantStr:  "",
+			wantN:    0,
+		},
+		{
+			name:     "longest wins over shorter",
+			surfaces: []string{"A", "B", "C"},
+			lookup:   map[string]bool{"ABC": true, "AB": true, "A": true},
+			wantStr:  "ABC",
+			wantN:    3,
+		},
+		{
+			name:     "no mid-match only shortest",
+			surfaces: []string{"A", "B", "C"},
+			lookup:   map[string]bool{"A": true, "C": true},
+			wantStr:  "A",
+			wantN:    1,
+		},
+		{
+			name:     "substring but not exact",
+			surfaces: []string{"A", "B"},
+			lookup:   map[string]bool{"ABX": true},
+			wantStr:  "",
+			wantN:    0,
+		},
+		{
+			name:     "nil lookupSet",
+			surfaces: []string{"A", "B"},
+			lookup:   nil,
+			wantStr:  "",
+			wantN:    0,
+		},
+		{
+			name:     "empty lookupSet",
+			surfaces: []string{"A", "B"},
+			lookup:   map[string]bool{},
+			wantStr:  "",
+			wantN:    0,
+		},
+		{
+			name:     "japanese two nouns match",
+			surfaces: []string{"毎", "朝"},
+			lookup:   map[string]bool{"毎朝": true},
+			wantStr:  "毎朝",
+			wantN:    2,
+		},
+		{
+			name:     "japanese three nouns split by dictionary",
+			surfaces: []string{"毎", "朝", "ご飯"},
+			lookup:   map[string]bool{"毎朝": true, "朝ご飯": true},
+			wantStr:  "毎朝",
+			wantN:    2,
+		},
+		{
+			name:     "japanese three nouns full match",
+			surfaces: []string{"毎", "朝", "ご飯"},
+			lookup:   map[string]bool{"毎朝ご飯": true},
+			wantStr:  "毎朝ご飯",
+			wantN:    3,
+		},
+		{
+			name:     "single hiragana char",
+			surfaces: []string{"あ"},
+			lookup:   map[string]bool{"あ": true},
+			wantStr:  "あ",
+			wantN:    1,
+		},
+		{
+			name:     "many nouns longest chain",
+			surfaces: []string{"A", "B", "C", "D", "E"},
+			lookup:   map[string]bool{"ABCDE": true, "ABCD": true, "AB": true},
+			wantStr:  "ABCDE",
+			wantN:    5,
+		},
+		{
+			name:     "many nouns only second prefix matches",
+			surfaces: []string{"A", "B", "C", "D", "E"},
+			lookup:   map[string]bool{"AB": true},
+			wantStr:  "AB",
+			wantN:    2,
+		},
+		{
+			name:     "many nouns none match",
+			surfaces: []string{"A", "B", "C", "D", "E"},
+			lookup:   map[string]bool{},
+			wantStr:  "",
+			wantN:    0,
+		},
+		{
+			name:     "japanese kanji nouns full match",
+			surfaces: []string{"日本", "語", "能力", "試験"},
+			lookup:   map[string]bool{"日本語能力試験": true},
+			wantStr:  "日本語能力試験",
+			wantN:    4,
+		},
+		{
+			name:     "japanese kanji nouns partial match",
+			surfaces: []string{"日本", "語", "能力", "試験"},
+			lookup:   map[string]bool{"日本語": true, "能力試験": true},
+			wantStr:  "日本語",
+			wantN:    2,
+		},
+		{
+			name:     "single noun with empty surface",
+			surfaces: []string{""},
+			lookup:   map[string]bool{"": true},
+			wantStr:  "",
+			wantN:    1,
+		},
+		{
+			name:     "mixed length surfaces full match",
+			surfaces: []string{"AB", "CDEF", "GH"},
+			lookup:   map[string]bool{"ABCDEF": true, "ABCDEFGH": true},
+			wantStr:  "ABCDEFGH",
+			wantN:    3,
+		},
+		{
+			name:     "mixed length surfaces prefix only",
+			surfaces: []string{"AB", "CDEF", "GH"},
+			lookup:   map[string]bool{"ABCDEF": true},
+			wantStr:  "ABCDEF",
+			wantN:    2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			nouns := make([]RawToken, len(tt.surfaces))
+			for i, s := range tt.surfaces {
+				nouns[i] = RawToken{Surface: s}
+			}
+
+			p := &parser{lookupSet: tt.lookup}
+			gotStr, gotN := p.findLongestPrefix(nouns)
+
+			assert.Equal(t, tt.wantStr, gotStr, "prefix mismatch")
+			assert.Equal(t, tt.wantN, gotN, "noun count mismatch")
+		})
+	}
+}
+
 func TestExtractKagomeTokens(t *testing.T) {
 	t.Parallel()
 
@@ -115,41 +344,41 @@ func TestExtractKagomeTokens(t *testing.T) {
 func TestParseVerbPhrase(t *testing.T) {
 	runParseTests(t, (*parser).parseVerbPhrase, []parseCase{
 		{"basic", "食べます", nil, []tokenExpect{
-			expect("食べます", "食べる"),
+			expect("食べます", "食べる", "KindVerb"),
 		}},
 		{"multiple suffixes", "食べさせられました", nil, []tokenExpect{
-			expect("食べさせられました", "食べる"),
+			expect("食べさせられました", "食べる", "KindVerb"),
 		}},
 		{"te form", "食べている", nil, []tokenExpect{
-			expect("食べている", "食べる"),
+			expect("食べている", "食べる", "KindVerb"),
 		}},
 		{"te form ておく", "食べておく", nil, []tokenExpect{
-			expect("食べておく", "食べる"),
+			expect("食べておく", "食べる", "KindVerb"),
 		}},
 		{"te form てしまう", "食べてしまう", nil, []tokenExpect{
-			expect("食べてしまう", "食べる"),
+			expect("食べてしまう", "食べる", "KindVerb"),
 		}},
 		{"te form another verb", "読んでしまう", nil, []tokenExpect{
-			expect("読んでしまう", "読む"),
+			expect("読んでしまう", "読む", "KindVerb"),
 		}},
 		{"yasui suffix", "読みやすい", nil, []tokenExpect{
-			expect("読みやすい", "読む"),
+			expect("読みやすい", "読む", "KindVerb"),
 		}},
 		{"nikui suffix", "読みにくい", nil, []tokenExpect{
-			expect("読みにくい", "読む"),
+			expect("読みにくい", "読む", "KindVerb"),
 		}},
 		{"nai verb that is an adjective", "詰まらない", map[string]bool{"詰まらない": true}, []tokenExpect{
-			expect("詰まらない", "詰まらない"),
+			expect("詰まらない", "詰まらない", "KindVerb"),
 		}},
 		{"nai verb that is not an adjective", "走れなくなった", nil, []tokenExpect{
-			expect("走れなく", "走れる"),
-			expect("なった", "なる"),
+			expect("走れなく", "走れる", "KindVerb"),
+			expect("なった", "なる", "KindVerb"),
 		}},
 		{"go-dan potential form", "話せる", map[string]bool{"話す": true}, []tokenExpect{
-			expect("話せる", "話す"),
+			expect("話せる", "話す", "KindVerb"),
 		}},
 		{"pseudo-go-dan potential verb", "食べる", map[string]bool{"食べる": true}, []tokenExpect{
-			expect("食べる", "食べる"),
+			expect("食べる", "食べる", "KindVerb"),
 		}},
 	})
 }
@@ -202,10 +431,10 @@ func TestGetPotentialGoDanInfinitive(t *testing.T) {
 func TestParseSuruVerb(t *testing.T) {
 	runParseTests(t, (*parser).parseSuruVerb, []parseCase{
 		{"basic", "勉強する", nil, []tokenExpect{
-			expect("勉強する", "勉強"),
+			expect("勉強する", "勉強", "KindVerb"),
 		}},
 		{"with causative passive", "勉強させられている", nil, []tokenExpect{
-			expect("勉強させられている", "勉強"),
+			expect("勉強させられている", "勉強", "KindVerb"),
 		}},
 		{"negative: standalone sahen noun", "発表", nil, nil},
 	})
@@ -214,10 +443,10 @@ func TestParseSuruVerb(t *testing.T) {
 func TestParseNaAdjective(t *testing.T) {
 	runParseTests(t, (*parser).parseNaAdjective, []parseCase{
 		{"plain", "静かなデン", nil, []tokenExpect{
-			expect("静かな", "静か"),
+			expect("静かな", "静か", "KindAdjective"),
 		}},
 		{"with deshita", "便利でした", nil, []tokenExpect{
-			expect("便利でした", "便利"),
+			expect("便利でした", "便利", "KindAdjective"),
 		}},
 		{"negative: noun is not na adjective", "名前", nil, nil},
 	})
@@ -226,13 +455,13 @@ func TestParseNaAdjective(t *testing.T) {
 func TestParseIAdjective(t *testing.T) {
 	runParseTests(t, (*parser).parseIAdjective, []parseCase{
 		{"followed by noun", "低い声", nil, []tokenExpect{
-			expect("低い", "低い"),
+			expect("低い", "低い", "KindAdjective"),
 		}},
 		{"negative", "安くない", nil, []tokenExpect{
-			expect("安くない", "安い"),
+			expect("安くない", "安い", "KindAdjective"),
 		}},
 		{"past negative", "高くなかった", nil, []tokenExpect{
-			expect("高くなかった", "高い"),
+			expect("高くなかった", "高い", "KindAdjective"),
 		}},
 	})
 }
@@ -256,22 +485,22 @@ func TestParseIAdjectiveNaru(t *testing.T) {
 func TestParseNounPhrase(t *testing.T) {
 	runParseTests(t, (*parser).parseNounPhrase, []parseCase{
 		{"single noun", "高校生", nil, []tokenExpect{
-			expect("高校生", "高校生"),
+			expect("高校生", "高校生", "KindNoun"),
 		}},
 		{"prefix plus noun", "ご家族", map[string]bool{"ご家族": true}, []tokenExpect{
-			expect("ご家族", "ご家族"),
+			expect("ご家族", "ご家族", "KindNoun"),
 		}},
 		{"split by dictionary", "毎朝朝ご飯", map[string]bool{"毎朝": true, "朝ご飯": true}, []tokenExpect{
-			expect("毎朝", "毎朝"),
-			expect("朝ご飯", "朝ご飯"),
+			expect("毎朝", "毎朝", "KindNoun"),
+			expect("朝ご飯", "朝ご飯", "KindNoun"),
 		}},
 		{"JLPT (do not split by dictionary)", "日本語能力試験", nil, []tokenExpect{
-			expect("日本語", "日本語"),
-			expect("能力", "能力"),
-			expect("試験", "試験"),
+			expect("日本語", "日本語", "KindNoun"),
+			expect("能力", "能力", "KindNoun"),
+			expect("試験", "試験", "KindNoun"),
 		}},
 		{"JLPT (split by dictionary)", "日本語能力試験", map[string]bool{"日本語能力試験": true}, []tokenExpect{
-			expect("日本語能力試験", "日本語能力試験"),
+			expect("日本語能力試験", "日本語能力試験", "KindNoun"),
 		}},
 	})
 }
@@ -279,7 +508,7 @@ func TestParseNounPhrase(t *testing.T) {
 func TestParseParticlePhrase(t *testing.T) {
 	runParseTests(t, (*parser).parseParticlePhrase, []parseCase{
 		{"single particle", "は", nil, []tokenExpect{
-			expectNoLookup("は"),
+			expect("は", "は", "KindParticle"),
 		}},
 	})
 }
@@ -287,29 +516,68 @@ func TestParseParticlePhrase(t *testing.T) {
 func TestParseCompoundNumber(t *testing.T) {
 	runParseTests(t, (*parser).parseCompoundNumber, []parseCase{
 		{"large number", "二万三千六百二十五", nil, []tokenExpect{
-			expect("二万三千六百二十五", "二万三千六百二十五"),
+			expect("二万三千六百二十五", "二万三千六百二十五", "KindNoun"),
 		}},
 		{"number plus counter hon", "五本", nil, []tokenExpect{
-			expect("五本", "五本"),
+			expect("五本", "五本", "KindNoun"),
 		}},
 		{"number plus counter hi", "三日", nil, []tokenExpect{
-			expect("三日", "三日"),
+			expect("三日", "三日", "KindNoun"),
 		}},
 		{"number plus counter nin", "三人", nil, []tokenExpect{
-			expect("三人", "三人"),
+			expect("三人", "三人", "KindNoun"),
 		}},
 		{"number plus counter mai", "二枚", nil, []tokenExpect{
-			expect("二枚", "二枚"),
+			expect("二枚", "二枚", "KindNoun"),
 		}},
 		{"single digit", "百", nil, []tokenExpect{
-			expect("百", "百"),
+			expect("百", "百", "KindNoun"),
 		}},
 		{"negative: counter without number", "枚", nil, nil},
 		{"negative: noun is not number", "高校生", nil, nil},
 	})
 }
 
-func TestParseUnknown(t *testing.T) {
+func parseUnknownAdapter(p *parser) (DisplayToken, bool) {
+	if p.eof() {
+		return DisplayToken{}, false
+	}
+	return p.parseUnknown(), true
+}
+
+func TestParseUnknows_Words(t *testing.T) {
+	runParseTests(t, parseUnknownAdapter, []parseCase{
+		{"noun", "虫", map[string]bool{"虫": true}, []tokenExpect{
+			expect("虫", "虫", "KindNoun"),
+		}},
+		{"verb", "走る", map[string]bool{"走る": true}, []tokenExpect{
+			expect("走る", "走る", "KindVerb"),
+		}},
+		{"auxverb", "です", map[string]bool{"です": true}, []tokenExpect{
+			expect("です", "です", "KindAuxVerb"),
+		}},
+		{"particle", "は", map[string]bool{"は": true}, []tokenExpect{
+			expect("は", "は", "KindParticle"),
+		}},
+		{"adjective", "美味しい", map[string]bool{"美味しい": true}, []tokenExpect{
+			expect("美味しい", "美味しい", "KindAdjective"),
+		}},
+		{"conjunction", "しかし", map[string]bool{"しかし": true}, []tokenExpect{
+			expect("しかし", "しかし", "KindConjunction"),
+		}},
+		{"interjection", "あれ", map[string]bool{"あれ": true}, []tokenExpect{
+			expect("あれ", "あれ", "KindInterjection"),
+		}},
+		{"adverb", "とても", map[string]bool{"とても": true}, []tokenExpect{
+			expect("とても", "とても", "KindAdverb"),
+		}},
+		{"prenominal", "この", map[string]bool{"この": true}, []tokenExpect{
+			expect("この", "この", "KindPrenominal"),
+		}},
+	})
+}
+
+func TestParseUnknown_Symbols(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -326,7 +594,7 @@ func TestParseUnknown(t *testing.T) {
 			t.Parallel()
 			p := createTestParser(t, tt.input)
 			token := p.parseUnknown()
-			assert.Equal(t, tt.input, token.Surface)
+			assert.Equal(t, "", token.Surface)
 			assert.Nil(t, token.Lookup)
 		})
 	}

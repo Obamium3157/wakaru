@@ -1,4 +1,9 @@
+//go:generate stringer -type=Kind
 package tokenize
+
+// TODO: сделать так, чтобы при отправке на фронтенд в случае,
+// если слово является частицой, на фронтенд отправлялось только значение
+// слова как частицы
 
 import (
 	"fmt"
@@ -37,8 +42,9 @@ type RawToken struct {
 }
 
 type DisplayToken struct {
-	Surface string
-	Lookup  *string
+	Surface      string
+	Lookup       *string
+	PartOfSpeech string
 }
 
 func Parse(tokens []tokenizer.Token, lookupSet map[string]bool) ([]DisplayToken, error) {
@@ -48,38 +54,22 @@ func Parse(tokens []tokenizer.Token, lookupSet map[string]bool) ([]DisplayToken,
 	}
 
 	var result []DisplayToken
+	methods := p.getMethods()
 
 	for !p.eof() {
-		if tok, ok := p.parseVerbPhrase(); ok {
-			result = append(result, tok)
-			continue
-		}
-		if tok, ok := p.parseSuruVerb(); ok {
-			result = append(result, tok)
-			continue
-		}
-		if tok, ok := p.parseNaAdjective(); ok {
-			result = append(result, tok)
-			continue
-		}
-		if tok, ok := p.parseIAdjective(); ok {
-			result = append(result, tok)
-			continue
-		}
-		if tok, ok := p.parseNounPhrase(); ok {
-			result = append(result, tok)
-			continue
-		}
-		if tok, ok := p.parseParticlePhrase(); ok {
-			result = append(result, tok)
-			continue
-		}
-		if tok, ok := p.parseCompoundNumber(); ok {
-			result = append(result, tok)
-			continue
+		matched := false
+
+		for _, parse := range methods {
+			if tok, ok := parse(); ok {
+				result = append(result, tok)
+				matched = true
+				break
+			}
 		}
 
-		result = append(result, p.parseUnknown())
+		if !matched {
+			result = append(result, p.parseUnknown())
+		}
 	}
 
 	return result, nil
@@ -108,6 +98,20 @@ func (p *parser) next() RawToken {
 	p.pos++
 
 	return t
+}
+
+type parserMethod func() (DisplayToken, bool)
+
+func (p *parser) getMethods() []parserMethod {
+	return []parserMethod{
+		p.parseVerbPhrase,
+		p.parseSuruVerb,
+		p.parseNaAdjective,
+		p.parseIAdjective,
+		p.parseNounPhrase,
+		p.parseParticlePhrase,
+		p.parseCompoundNumber,
+	}
 }
 
 func newParser(tokens []tokenizer.Token, lookupSet map[string]bool) (*parser, error) {
@@ -225,41 +229,22 @@ func (p *parser) parseVerbPhrase() (DisplayToken, bool) {
 		lookup = processPotentialVerbBaseForm(start, p.lookupSet)
 	}
 
-	for !p.eof() {
-		next := p.peek()
-		consume := false
-
-		switch next.POSMajor {
-		case KindVerb:
-			consume = next.POSMinor == "非自立" || next.POSMinor == "接尾"
-		case KindAuxVerb:
-			consume = true
-		case KindParticle:
-			consume = next.POSMinor == "接続助詞"
-		case KindAdjective:
-			consume = next.POSMinor == "非自立"
-		}
-
-		if !consume {
-			break
-		}
-
-		surface.WriteString(next.Surface)
-		p.next()
-	}
+	p.consumeSuffix(&surface)
 
 	s := surface.String()
 
 	if p.lookupSet[s] {
 		return DisplayToken{
-			Surface: surface.String(),
-			Lookup:  &s,
+			Surface:      surface.String(),
+			Lookup:       &s,
+			PartOfSpeech: tok.POSMajor.String(),
 		}, true
 	}
 
 	return DisplayToken{
-		Surface: surface.String(),
-		Lookup:  &lookup,
+		Surface:      surface.String(),
+		Lookup:       &lookup,
+		PartOfSpeech: tok.POSMajor.String(),
 	}, true
 }
 
@@ -268,7 +253,7 @@ func checkIsGoDanVerbPotential(rt RawToken) bool {
 	return strings.HasSuffix(s, "せる") ||
 		strings.HasSuffix(s, "ける") ||
 		strings.HasSuffix(s, "げる") ||
-		strings.HasSuffix(s, "べる") || // 食べる ??
+		strings.HasSuffix(s, "べる") ||
 		strings.HasSuffix(s, "てる") ||
 		strings.HasSuffix(s, "める") ||
 		strings.HasSuffix(s, "える") ||
@@ -365,10 +350,20 @@ func (p *parser) parseSuruVerb() (DisplayToken, bool) {
 	}
 	surface.WriteString(p.next().Surface)
 
+	p.consumeSuffix(&surface)
+
+	lookup := start.Surface
+	return DisplayToken{
+		Surface:      surface.String(),
+		Lookup:       &lookup,
+		PartOfSpeech: tok.POSMajor.String(),
+	}, true
+}
+
+func (p *parser) consumeSuffix(surface *strings.Builder) {
 	for !p.eof() {
 		next := p.peek()
 		consume := false
-
 		switch next.POSMajor {
 		case KindVerb:
 			consume = next.POSMinor == "非自立" || next.POSMinor == "接尾"
@@ -379,20 +374,12 @@ func (p *parser) parseSuruVerb() (DisplayToken, bool) {
 		case KindAdjective:
 			consume = next.POSMinor == "非自立"
 		}
-
 		if !consume {
 			break
 		}
-
 		surface.WriteString(next.Surface)
 		p.next()
 	}
-
-	lookup := start.Surface
-	return DisplayToken{
-		Surface: surface.String(),
-		Lookup:  &lookup,
-	}, true
 }
 
 // parseNaAdjective covers:
@@ -426,8 +413,9 @@ func (p *parser) parseNaAdjective() (DisplayToken, bool) {
 
 	lookup := start.Surface
 	return DisplayToken{
-		Surface: surface.String(),
-		Lookup:  &lookup,
+		Surface:      surface.String(),
+		Lookup:       &lookup,
+		PartOfSpeech: tok.POSMajor.String(),
 	}, true
 }
 
@@ -460,8 +448,9 @@ func (p *parser) parseIAdjective() (DisplayToken, bool) {
 
 	lookup := start.BaseForm
 	return DisplayToken{
-		Surface: surface.String(),
-		Lookup:  &lookup,
+		Surface:      surface.String(),
+		Lookup:       &lookup,
+		PartOfSpeech: tok.POSMajor.String(),
 	}, true
 }
 
@@ -489,24 +478,27 @@ func (p *parser) parseNounPhrase() (DisplayToken, bool) {
 		p.pos = startPos + 1
 		s := tok.Surface
 		return DisplayToken{
-			Surface: s,
-			Lookup:  &s,
+			Surface:      s,
+			Lookup:       &s,
+			PartOfSpeech: tok.POSMajor.String(),
 		}, true
 	}
 
 	if prefix, n := p.findLongestPrefix(nouns); n > 0 {
 		p.pos = startPos + n
 		return DisplayToken{
-			Surface: prefix,
-			Lookup:  &prefix,
+			Surface:      prefix,
+			Lookup:       &prefix,
+			PartOfSpeech: tok.POSMajor.String(),
 		}, true
 	}
 
 	p.pos = startPos + 1
 	s := tok.Surface
 	return DisplayToken{
-		Surface: s,
-		Lookup:  &s,
+		Surface:      s,
+		Lookup:       &s,
+		PartOfSpeech: tok.POSMajor.String(),
 	}, true
 }
 
@@ -561,8 +553,9 @@ func (p *parser) parseParticlePhrase() (DisplayToken, bool) {
 
 	result := surface.String()
 	return DisplayToken{
-		Surface: result,
-		Lookup:  nil,
+		Surface:      result,
+		Lookup:       &result,
+		PartOfSpeech: tok.POSMajor.String(),
 	}, true
 }
 
@@ -597,18 +590,39 @@ func (p *parser) parseCompoundNumber() (DisplayToken, bool) {
 
 	result := surface.String()
 	return DisplayToken{
-		Surface: result,
-		Lookup:  &result,
+		Surface:      result,
+		Lookup:       &result,
+		PartOfSpeech: tok.POSMajor.String(),
 	}, true
 }
 
 // parseUnknown consumes a single token that was not recognized by any
 // specialized parser.
 func (p *parser) parseUnknown() DisplayToken {
+	if p.eof() {
+		return DisplayToken{}
+	}
+
 	tok := p.next()
+
+	if tok.POSMajor == KindSymbol {
+		return DisplayToken{}
+	}
+
 	s := tok.Surface
+
+	lookup := &s
+	if _, ok := p.lookupSet[s]; !ok {
+		if _, ok := p.lookupSet[tok.BaseForm]; ok {
+			lookup = &tok.BaseForm
+		} else {
+			lookup = nil
+		}
+	}
+
 	return DisplayToken{
-		Surface: s,
-		Lookup:  nil,
+		Surface:      s,
+		Lookup:       lookup,
+		PartOfSpeech: tok.POSMajor.String(),
 	}
 }
