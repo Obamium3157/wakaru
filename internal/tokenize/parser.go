@@ -31,6 +31,22 @@ const (
 	KindOther
 )
 
+var posMap = map[string]Kind{
+	"名詞":   KindNoun,
+	"動詞":   KindVerb,
+	"形容詞":  KindAdjective,
+	"助詞":   KindParticle,
+	"助動詞":  KindAuxVerb,
+	"記号":   KindSymbol,
+	"接頭詞":  KindPrefix,
+	"接続詞":  KindConjunction,
+	"感動詞":  KindInterjection,
+	"副詞":   KindAdverb,
+	"連体詞":  KindPrenominal,
+	"フィラー": KindFiller,
+	"その他":  KindOther,
+}
+
 type RawToken struct {
 	Surface  string
 	BaseForm string
@@ -162,40 +178,11 @@ func NewRawToken(t tokenizer.Token) (*RawToken, error) {
 }
 
 func (t *RawToken) initPOSMajor(kind string) error {
-	switch kind {
-
-	case "名詞":
-		t.POSMajor = KindNoun
-	case "動詞":
-		t.POSMajor = KindVerb
-	case "形容詞":
-		t.POSMajor = KindAdjective
-	case "助詞":
-		t.POSMajor = KindParticle
-	case "助動詞":
-		t.POSMajor = KindAuxVerb
-	case "記号":
-		t.POSMajor = KindSymbol
-	case "接頭詞":
-		t.POSMajor = KindPrefix
-	case "接続詞":
-		t.POSMajor = KindConjunction
-	case "感動詞":
-		t.POSMajor = KindInterjection
-	case "副詞":
-		t.POSMajor = KindAdverb
-	case "連体詞":
-		t.POSMajor = KindPrenominal
-	case "フィラー":
-		t.POSMajor = KindFiller
-	case "その他":
-		t.POSMajor = KindOther
-
-	default:
-		return fmt.Errorf("unknown POS1 %q", kind)
+	if k, ok := posMap[kind]; ok {
+		t.POSMajor = k
+		return nil
 	}
-
-	return nil
+	return fmt.Errorf("unknown POS1 %q", kind)
 }
 
 // parseVerbPhrase covers:
