@@ -514,15 +514,21 @@ func (p *parser) collectNounPhrase() []RawToken {
 }
 
 func (p *parser) findLongestPrefix(nouns []RawToken) (string, int) {
+	var b strings.Builder
+	lengths := make([]int, 0, len(nouns))
+	for _, n := range nouns {
+		lengths = append(lengths, len(n.Surface))
+		b.WriteString(n.Surface)
+	}
+	full := b.String()
+
+	offset := len(full)
 	for i := len(nouns); i >= 1; i-- {
-		var prefix strings.Builder
-		for j := 0; j < i; j++ {
-			prefix.WriteString(nouns[j].Surface)
+		candidate := full[:offset]
+		if p.lookupSet[candidate] {
+			return candidate, i
 		}
-		prefixStr := prefix.String()
-		if p.lookupSet[prefixStr] {
-			return prefixStr, i
-		}
+		offset -= lengths[i-1]
 	}
 	return "", 0
 }
