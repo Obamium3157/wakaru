@@ -3,6 +3,7 @@ import { SearchInput } from "./components/SearchInput";
 import { Results } from "./components/Results";
 import styles from './App.module.css'
 import { useTranslator } from "./hooks/useTranslator";
+import { BrowserRouter } from "react-router-dom";
 
 function App() {
   const {
@@ -21,13 +22,15 @@ function App() {
 
 
   return (
-    <div className={styles.app}>
-      <h1>wakaru</h1>
-      <div className={styles.content}>
-        <SearchInput onSubmit={handleTranslate} loading={loading} />
-        <Results response={response} error={error} />
+    <BrowserRouter>
+      <div className={styles.app}>
+        <h1>wakaru</h1>
+        <div className={styles.content}>
+          <SearchInput onSubmit={handleTranslate} loading={loading} />
+          <Results response={response} error={error} />
+        </div>
       </div>
-    </div>
+    </BrowserRouter>
   );
 }
 

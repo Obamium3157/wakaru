@@ -11,8 +11,6 @@ export function Entry({ entry }: EntryProps) {
   const kanaStr = entry.kana?.[0] ?? "";
   const segments = entry.ruby ?? buildRubySegments(kanjiStr, kanaStr);
 
-  console.log("Translations: ", entry.translations)
-
   return (
     <div className={styles.entry} key={entry.id}>
       <div className={styles.entryHeader}>

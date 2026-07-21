@@ -1,13 +1,14 @@
-import type React from "react";
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 interface UseHandleSearchInputProps {
   onSubmit: (text: string) => void,
   initialValue?: string;
 }
 
-export function useHandleSearchInput({ onSubmit, initialValue }: UseHandleSearchInputProps) {
-  const [value, setValue] = useState(initialValue ?? "")
+export function useHandleSearchInput({ onSubmit }: UseHandleSearchInputProps) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [value, setValue] = useState(searchParams.get("q") ?? "");
 
   function handleSubmit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -21,12 +22,10 @@ export function useHandleSearchInput({ onSubmit, initialValue }: UseHandleSearch
     const newValue = e.target.value;
     setValue(newValue);
     const trimmed = newValue.trim();
-    window.history.replaceState(
-      null,
-      "",
-      trimmed
-        ? `/?q=${encodeURIComponent(trimmed)}`
-        : window.location.pathname
+    setSearchParams(trimmed && trimmed
+      ? { q: trimmed }
+      : {},
+      { replace: true }
     );
   }
 
@@ -34,5 +33,5 @@ export function useHandleSearchInput({ onSubmit, initialValue }: UseHandleSearch
     value,
     handleSubmit,
     handleChange,
-  }
+  };
 }
