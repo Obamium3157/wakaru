@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+
+	"wakaru/internal/sqlutils"
 )
 
 type inserter struct {
@@ -545,7 +547,7 @@ func (ins *inserter) loadTags(dict *Dictionary) error {
 }
 
 func formInsertQuery(table string, columns []string) string {
-	placeholders := getPlaceholders(len(columns))
+	placeholders := sqlutils.GetPlaceholders(len(columns))
 
 	return fmt.Sprintf(
 		`INSERT INTO %s (%s) VALUES (%s)`,
@@ -553,13 +555,4 @@ func formInsertQuery(table string, columns []string) string {
 		strings.Join(columns, ", "),
 		strings.Join(placeholders, ", "),
 	)
-}
-
-func getPlaceholders(n int) []string {
-	placeholders := make([]string, n)
-	for i := range placeholders {
-		placeholders[i] = "?"
-	}
-
-	return placeholders
 }

@@ -4,6 +4,10 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"strings"
+
+	"wakaru/internal/sqlutils"
 )
 
 type SQLiteRepo struct {
@@ -77,6 +81,29 @@ func (r *SQLiteRepo) FindByKana(ctx context.Context, text string) ([]Entry, erro
 
 func (r *SQLiteRepo) Find(ctx context.Context, text string) ([]Entry, error) {
 	rows, err := r.find.QueryContext(ctx, text, text)
+	if err != nil {
+		return nil, err
+	}
+
+	return r.loadEntries(ctx, rows)
+}
+
+func (r *SQLiteRepo) FindFiltered(ctx context.Context, text string, posTags []string) ([]Entry, error) {
+	query := fmt.Sprintf(
+		findFilteredQuery,
+		strings.Join(
+			sqlutils.GetPlaceholders(len(posTags)),
+			",",
+		),
+	)
+
+	args := make([]any, 0, 2+len(posTags))
+	args = append(args, text, text)
+	for _, tag := range posTags {
+		args = append(args, tag)
+	}
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}

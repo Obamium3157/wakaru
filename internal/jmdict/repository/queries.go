@@ -16,6 +16,24 @@ FROM (
 ORDER BY word_id;
 `
 
+const findFilteredQuery = `
+SELECT DISTINCT matches.word_id
+FROM (
+    SELECT word_id FROM kanji WHERE text = ?
+    UNION
+    SELECT word_id FROM kana WHERE text = ?
+) AS matches
+WHERE EXISTS (
+    SELECT 1
+    FROM sense s
+    JOIN sense_part_of_speech sps ON sps.sense_id = s.id
+    JOIN tag t ON t.id = sps.tag_id
+    WHERE s.word_id = matches.word_id
+      AND t.label IN (%s)
+)
+ORDER BY matches.word_id;
+`
+
 const findByKanjiQuery = `
 SELECT DISTINCT word_id
 FROM kanji

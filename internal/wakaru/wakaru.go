@@ -20,6 +20,36 @@ import (
 
 const maxAmountOfChannels = 5
 
+var kindToPOSTags = map[tokenize.Kind][]string{
+	tokenize.KindNoun: {
+		"n", "n-t", "n-adv", "n-pref", "n-suf", "n-pr", "pn",
+	},
+	tokenize.KindVerb: {
+		"v1", "v1-s", "v5aru", "v5b", "v5g", "v5k", "v5k-s",
+		"v5m", "v5n", "v5r", "v5r-i", "v5s", "v5t", "v5u",
+		"v5u-s", "v5uru", "v2a-s", "v2b-k", "v2b-s", "v2d-k",
+		"v2d-s", "v2g-k", "v2g-s", "v2h-k", "v2h-s", "v2k-k",
+		"v2k-s", "v2m-k", "v2m-s", "v2n-s", "v2r-k", "v2r-s",
+		"v2s-s", "v2t-k", "v2t-s", "v2w-s", "v2y-k", "v2y-s",
+		"v2z-s", "v4b", "v4g", "v4h", "v4k", "v4m", "v4n",
+		"v4r", "v4s", "v4t", "vk", "vn", "vr", "vs", "vs-c",
+		"vs-i", "vs-s", "v-unspec", "vz", "vi", "vt",
+	},
+	tokenize.KindAuxVerb:  {"aux-v", "aux"},
+	tokenize.KindParticle: {"prt"},
+	tokenize.KindPrefix:   {"pref", "n-pref"},
+	tokenize.KindAdjective: {
+		"adj-i", "adj-ix", "adj-na", "adj-no", "adj-pn", "adj-f",
+		"adj-t", "adj-kari", "adj-ku", "adj-shiku", "adj-nari",
+		"aux-adj",
+	},
+	tokenize.KindConjunction:  {"conj"},
+	tokenize.KindInterjection: {"int"},
+	tokenize.KindAdverb:       {"adv", "adv-to", "n-adv"},
+	tokenize.KindPrenominal:   {"adj-pn", "adj-f"},
+	tokenize.KindOther:        {"unc", "oth"},
+}
+
 type Result struct {
 	Entries  []repository.Entry `json:"entries"`
 	Examples []examples.Example `json:"examples"`
@@ -122,12 +152,17 @@ func (w *Wakaru) FindEntries(ctx context.Context, t tokenize.DisplayToken) ([]re
 		return nil, nil
 	}
 
-	entries, err := w.repo.Find(ctx, *t.Lookup)
-	if err != nil {
-		return nil, err
+	if tags, ok := kindToPOSTags[t.POSMajor]; ok {
+		entries, err := w.repo.FindFiltered(ctx, *t.Lookup, tags)
+		if err != nil {
+			return nil, err
+		}
+		if len(entries) > 0 {
+			return entries, nil
+		}
 	}
 
-	return entries, nil
+	return w.repo.Find(ctx, *t.Lookup)
 }
 
 func (w *Wakaru) FindExamples(ctx context.Context, t tokenize.DisplayToken) []examples.Example {

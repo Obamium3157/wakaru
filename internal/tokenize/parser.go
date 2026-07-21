@@ -58,9 +58,9 @@ type RawToken struct {
 }
 
 type DisplayToken struct {
-	Surface      string
-	Lookup       *string
-	PartOfSpeech string
+	Surface  string
+	Lookup   *string
+	POSMajor Kind
 }
 
 func Parse(tokens []tokenizer.Token, lookupSet map[string]bool) ([]DisplayToken, error) {
@@ -222,16 +222,16 @@ func (p *parser) parseVerbPhrase() (DisplayToken, bool) {
 
 	if p.lookupSet[s] {
 		return DisplayToken{
-			Surface:      surface.String(),
-			Lookup:       &s,
-			PartOfSpeech: tok.POSMajor.String(),
+			Surface:  surface.String(),
+			Lookup:   &s,
+			POSMajor: tok.POSMajor,
 		}, true
 	}
 
 	return DisplayToken{
-		Surface:      surface.String(),
-		Lookup:       &lookup,
-		PartOfSpeech: tok.POSMajor.String(),
+		Surface:  surface.String(),
+		Lookup:   &lookup,
+		POSMajor: tok.POSMajor,
 	}, true
 }
 
@@ -345,9 +345,9 @@ func (p *parser) parseSuruVerb() (DisplayToken, bool) {
 
 	lookup := start.Surface
 	return DisplayToken{
-		Surface:      surface.String(),
-		Lookup:       &lookup,
-		PartOfSpeech: tok.POSMajor.String(),
+		Surface:  surface.String(),
+		Lookup:   &lookup,
+		POSMajor: tok.POSMajor,
 	}, true
 }
 
@@ -404,9 +404,9 @@ func (p *parser) parseNaAdjective() (DisplayToken, bool) {
 
 	lookup := start.Surface
 	return DisplayToken{
-		Surface:      surface.String(),
-		Lookup:       &lookup,
-		PartOfSpeech: tok.POSMajor.String(),
+		Surface:  surface.String(),
+		Lookup:   &lookup,
+		POSMajor: tok.POSMajor,
 	}, true
 }
 
@@ -439,9 +439,9 @@ func (p *parser) parseIAdjective() (DisplayToken, bool) {
 
 	lookup := start.BaseForm
 	return DisplayToken{
-		Surface:      surface.String(),
-		Lookup:       &lookup,
-		PartOfSpeech: tok.POSMajor.String(),
+		Surface:  surface.String(),
+		Lookup:   &lookup,
+		POSMajor: tok.POSMajor,
 	}, true
 }
 
@@ -469,27 +469,27 @@ func (p *parser) parseNounPhrase() (DisplayToken, bool) {
 		p.pos = startPos + 1
 		s := tok.Surface
 		return DisplayToken{
-			Surface:      s,
-			Lookup:       &s,
-			PartOfSpeech: tok.POSMajor.String(),
+			Surface:  s,
+			Lookup:   &s,
+			POSMajor: tok.POSMajor,
 		}, true
 	}
 
 	if prefix, n := p.findLongestPrefix(nouns); n > 0 {
 		p.pos = startPos + n
 		return DisplayToken{
-			Surface:      prefix,
-			Lookup:       &prefix,
-			PartOfSpeech: tok.POSMajor.String(),
+			Surface:  prefix,
+			Lookup:   &prefix,
+			POSMajor: tok.POSMajor,
 		}, true
 	}
 
 	p.pos = startPos + 1
 	s := tok.Surface
 	return DisplayToken{
-		Surface:      s,
-		Lookup:       &s,
-		PartOfSpeech: tok.POSMajor.String(),
+		Surface:  s,
+		Lookup:   &s,
+		POSMajor: tok.POSMajor,
 	}, true
 }
 
@@ -550,9 +550,9 @@ func (p *parser) parseParticlePhrase() (DisplayToken, bool) {
 
 	result := surface.String()
 	return DisplayToken{
-		Surface:      result,
-		Lookup:       &result,
-		PartOfSpeech: tok.POSMajor.String(),
+		Surface:  result,
+		Lookup:   &result,
+		POSMajor: tok.POSMajor,
 	}, true
 }
 
@@ -587,9 +587,9 @@ func (p *parser) parseCompoundNumber() (DisplayToken, bool) {
 
 	result := surface.String()
 	return DisplayToken{
-		Surface:      result,
-		Lookup:       &result,
-		PartOfSpeech: tok.POSMajor.String(),
+		Surface:  result,
+		Lookup:   &result,
+		POSMajor: tok.POSMajor,
 	}, true
 }
 
@@ -618,8 +618,8 @@ func (p *parser) parseUnknown() DisplayToken {
 	}
 
 	return DisplayToken{
-		Surface:      s,
-		Lookup:       lookup,
-		PartOfSpeech: tok.POSMajor.String(),
+		Surface:  s,
+		Lookup:   lookup,
+		POSMajor: tok.POSMajor,
 	}
 }
