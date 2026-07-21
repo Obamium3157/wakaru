@@ -249,15 +249,19 @@ func (p *parser) parseVerbPhrase() (DisplayToken, bool) {
 }
 
 func checkIsGoDanVerbPotential(rt RawToken) bool {
-	s := rt.Surface
-	return strings.HasSuffix(s, "せる") ||
-		strings.HasSuffix(s, "ける") ||
-		strings.HasSuffix(s, "げる") ||
-		strings.HasSuffix(s, "べる") ||
-		strings.HasSuffix(s, "てる") ||
-		strings.HasSuffix(s, "める") ||
-		strings.HasSuffix(s, "える") ||
-		strings.HasSuffix(s, "ねる")
+	runes := []rune(rt.Surface)
+	if len(runes) < 2 {
+		return false
+	}
+	if runes[len(runes)-1] != 'る' {
+		return false
+	}
+	switch runes[len(runes)-2] {
+	case 'せ', 'け', 'げ', 'べ', 'て', 'め', 'え', 'ね':
+		return true
+	default:
+		return false
+	}
 }
 
 // processPotentialVerbBaseForm checks if verb is in potential form and
