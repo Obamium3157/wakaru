@@ -1,29 +1,24 @@
-import { useState } from "react";
+import { useEffect } from "react";
 import { SearchInput } from "./components/SearchInput";
 import { Results } from "./components/Results";
-import { translate } from "./api";
-import type { TranslateResponse } from "./types";
 import styles from './App.module.css'
+import { useTranslator } from "./hooks/useTranslator";
 
 function App() {
-  const [response, setResponse] = useState<TranslateResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const {
+    response,
+    error,
+    loading,
+    initialQuery,
+    handleTranslate
+  } = useTranslator()
 
-  async function handleTranslate(text: string) {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const data = await translate(text);
-      setResponse(data);
-    } catch (e) {
-      setResponse(null);
-      setError(e instanceof Error ? e.message : "unknown error");
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (initialQuery) {
+      handleTranslate(initialQuery);
     }
-  }
+  }, []);
+
 
   return (
     <div className={styles.app}>
