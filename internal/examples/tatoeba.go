@@ -96,8 +96,6 @@ func (c *Client) Search(ctx context.Context, params SearchParameters) ([]Example
 			return nil, err
 		}
 
-		// log.Printf("tatoeba attempt %d for %q: %s (%v)", attempt, params.Word, resp.Status, time.Since(reqStart))
-
 		return formExamples(result), nil
 	}
 
