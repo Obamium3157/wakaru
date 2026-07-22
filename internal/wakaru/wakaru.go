@@ -129,6 +129,23 @@ func (w *Wakaru) Run(ctx context.Context, input string) (string, []Result, error
 	return formDisplaySearchString(tokens), results, nil
 }
 
+func (w *Wakaru) FindWord(ctx context.Context, text string, posMajor string) ([]repository.Entry, error) {
+	if posMajor != "" {
+		if kind, ok := tokenize.ParseKind(posMajor); ok {
+			if tags, ok := kindToPOSTags[kind]; ok {
+				entries, err := w.repo.FindFiltered(ctx, text, tags)
+				if err != nil {
+					return nil, err
+				}
+				if len(entries) > 0 {
+					return entries, nil
+				}
+			}
+		}
+	}
+	return w.repo.Find(ctx, text)
+}
+
 func (w *Wakaru) Close() error {
 	return w.db.Close()
 }

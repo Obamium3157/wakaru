@@ -144,6 +144,15 @@ func newParser(tokens []tokenizer.Token, lookupSet map[string]bool) (*parser, er
 	return p, nil
 }
 
+func ParseKind(s string) (Kind, bool) {
+	for i := KindUnknown; i <= KindOther; i++ {
+		if i.String() == s {
+			return i, true
+		}
+	}
+	return KindUnknown, false
+}
+
 func NewRawToken(t tokenizer.Token) (*RawToken, error) {
 	features := t.Features()
 	if len(features) < 4 {

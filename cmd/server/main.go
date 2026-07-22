@@ -29,7 +29,8 @@ func main() {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/translate", translateHandler(w))
-	mux.Handle("/", http.FileServer(http.Dir("frontend/dist")))
+	mux.HandleFunc("GET /api/word/{text}", wordHandler(w))
+	mux.HandleFunc("GET /{path...}", spaHandler("frontend/dist"))
 
 	srv := &http.Server{
 		Addr:    ":8080",
@@ -81,5 +82,40 @@ func translateHandler(w *wakaru.Wakaru) http.HandlerFunc {
 			"displayString": dispStr,
 			"results":       results,
 		})
+	}
+}
+
+func wordHandler(w *wakaru.Wakaru) http.HandlerFunc {
+	return func(rw http.ResponseWriter, r *http.Request) {
+		text := r.PathValue("text")
+		if text == "" {
+			http.Error(rw, "text is required", http.StatusBadRequest)
+			return
+		}
+
+		posMajor := r.URL.Query().Get("pos")
+
+		entries, err := w.FindWord(r.Context(), text, posMajor)
+		if err != nil {
+			http.Error(rw, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		rw.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(rw).Encode(map[string]any{
+			"entries": entries,
+		})
+	}
+}
+
+func spaHandler(distDir string) http.HandlerFunc {
+	fileServer := http.FileServer(http.Dir(distDir))
+	return func(rw http.ResponseWriter, r *http.Request) {
+		path := distDir + r.URL.Path
+		if info, err := os.Stat(path); err == nil && !info.IsDir() {
+			fileServer.ServeHTTP(rw, r)
+			return
+		}
+		http.ServeFile(rw, r, distDir+"/index.html")
 	}
 }
