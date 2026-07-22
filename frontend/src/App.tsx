@@ -1,35 +1,14 @@
-import { useEffect } from "react";
-import { SearchInput } from "./components/SearchInput";
-import { Results } from "./components/Results";
-import styles from './App.module.css'
-import { useTranslator } from "./hooks/useTranslator";
-import { BrowserRouter } from "react-router-dom";
+import { Routes, Route, BrowserRouter } from "react-router-dom";
+import { WordInfoPage } from "./components/WordInfoPage";
+import { HomePage } from "./components/HomePage";
 
 function App() {
-  const {
-    response,
-    error,
-    loading,
-    initialQuery,
-    handleTranslate
-  } = useTranslator()
-
-  useEffect(() => {
-    if (initialQuery) {
-      handleTranslate(initialQuery);
-    }
-  }, []);
-
-
   return (
     <BrowserRouter>
-      <div className={styles.app}>
-        <h1>wakaru</h1>
-        <div className={styles.content}>
-          <SearchInput onSubmit={handleTranslate} loading={loading} />
-          <Results response={response} error={error} />
-        </div>
-      </div>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/info/:word" element={<WordInfoPage />} />
+      </Routes>
     </BrowserRouter>
   );
 }
