@@ -15,6 +15,7 @@ type Entry struct {
 
 type Translation struct {
 	SenseID int64   `json:"senseId"`
+	Pos     *string `json:"pos,omitempty"`
 	Glosses []Gloss `json:"glosses"`
 }
 

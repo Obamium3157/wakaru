@@ -66,7 +66,14 @@ const findTranslationsQuery = `
 SELECT
     s.id,
     g.lang,
-    g.text
+    g.text,
+    (
+        SELECT GROUP_CONCAT(t.label, ', ')
+        FROM sense_part_of_speech sps
+        JOIN tag t ON t.id = sps.tag_id
+        WHERE sps.sense_id = s.id
+        ORDER BY sps.display_order
+    ) AS pos
 FROM sense s
 JOIN gloss g
 ON g.sense_id = s.id

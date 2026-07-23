@@ -53,6 +53,7 @@ var kindToPOSTags = map[tokenize.Kind][]string{
 type Result struct {
 	Entries  []repository.Entry `json:"entries"`
 	Examples []examples.Example `json:"examples"`
+	PosMajor string             `json:"posMajor"`
 }
 
 type Wakaru struct {
@@ -118,7 +119,11 @@ func (w *Wakaru) Run(ctx context.Context, input string) (string, []Result, error
 				return err
 			}
 			examples := w.FindExamples(ctx, t)
-			results[i] = Result{entries, examples}
+			results[i] = Result{
+				Entries:  entries,
+				Examples: examples,
+				PosMajor: t.POSMajor.String(),
+			}
 			return nil
 		})
 	}
@@ -207,7 +212,7 @@ func (w *Wakaru) FindExamples(ctx context.Context, t tokenize.DisplayToken) []ex
 		MinWordCount: new(8),
 		MaxWordCount: nil,
 		Sort:         "relevance",
-		Limit:        new(5),
+		Limit:        new(10),
 	})
 	if err != nil {
 		log.Printf("tatoeba lookup failed for %q: %v", *t.Lookup, err)

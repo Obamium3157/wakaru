@@ -240,15 +240,17 @@ func (r *SQLiteRepo) loadTranslations(ctx context.Context, wordID string) ([]Tra
 			senseID int64
 			lang    string
 			text    string
+			pos     *string
 		}
 
-		if err := rows.Scan(&got.senseID, &got.lang, &got.text); err != nil {
+		if err := rows.Scan(&got.senseID, &got.lang, &got.text, &got.pos); err != nil {
 			return nil, err
 		}
 
 		if len(translations) == 0 || got.senseID != currentSenseID {
 			translations = append(translations, Translation{
 				SenseID: got.senseID,
+				Pos:     got.pos,
 			})
 			currentSenseID = got.senseID
 		}
