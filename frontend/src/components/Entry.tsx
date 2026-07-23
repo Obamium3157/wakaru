@@ -15,7 +15,7 @@ export function Entry({ entry }: EntryProps) {
   const kanaStr = entry.kana?.[0] ?? "";
   const segments = entry.ruby ?? buildRubySegments(kanjiStr, kanaStr);
   const groupedByPos = useGroupedByPos({ translations: entry.translations });
-  const { addBasicAnkiCard } = useAddBasicAnkiCard()
+  const { addBasicAnkiCard } = useAddBasicAnkiCard({ entry, segments })
 
   return (
     <div className={styles.entry}>
@@ -27,10 +27,7 @@ export function Entry({ entry }: EntryProps) {
         ))}
       </div>
 
-      <button onClick={() => addBasicAnkiCard({
-        front: "hehehe",
-        back: "hahaha",
-      })}>Create Anki card</button>
+      <button onClick={addBasicAnkiCard}>Create Anki card</button>
     </div>
   )
 }
