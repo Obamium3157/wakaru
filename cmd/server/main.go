@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -38,15 +38,14 @@ func main() {
 	}
 	defer w.Close()
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("POST /api/translate", translateHandler(w))
-	mux.HandleFunc("GET /api/word/{text}", wordHandler(w))
-	mux.HandleFunc("GET /{path...}", spaHandler("frontend/dist"))
+	mux := initMux(w)
 
-	srv := &http.Server{
-		Addr:    ":8080",
-		Handler: mux,
+	port, err := getPort()
+	if err != nil {
+		log.Fatal(err)
 	}
+
+	srv := initServer(port, mux)
 
 	go func() {
 		<-ctx.Done()
@@ -56,7 +55,7 @@ func main() {
 		}
 	}()
 
-	log.Println("listening on :8080")
+	log.Printf("listening on %s", port)
 	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
 		log.Fatal(err)
 	}
@@ -68,65 +67,35 @@ func mustLoadEnv() {
 	}
 }
 
-func translateHandler(w *wakaru.Wakaru) http.HandlerFunc {
-	return func(rw http.ResponseWriter, r *http.Request) {
-		var req struct {
-			Text string `json:"text"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(rw, "invalid request body", http.StatusBadRequest)
-			return
-		}
-		if req.Text == "" {
-			http.Error(rw, "text is required", http.StatusBadRequest)
-			return
-		}
-
-		dispStr, results, err := w.Run(r.Context(), req.Text)
-		if err != nil {
-			http.Error(rw, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		rw.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(rw).Encode(map[string]any{
-			"displayString": dispStr,
-			"results":       results,
-		})
+func getPort() (string, error) {
+	port, err := strconv.Atoi(os.Getenv("SERVER_PORT"))
+	if err != nil {
+		return "", err
 	}
+	if ok := validatePort(port); !ok {
+		return "", fmt.Errorf("server port should be in range [1, 65535], got %d", port)
+	}
+
+	return fmt.Sprintf(":%d", port), nil
 }
 
-func wordHandler(w *wakaru.Wakaru) http.HandlerFunc {
-	return func(rw http.ResponseWriter, r *http.Request) {
-		text := r.PathValue("text")
-		if text == "" {
-			http.Error(rw, "text is required", http.StatusBadRequest)
-			return
-		}
-
-		posMajor := r.URL.Query().Get("pos")
-
-		entries, err := w.FindWord(r.Context(), text, posMajor)
-		if err != nil {
-			http.Error(rw, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		rw.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(rw).Encode(map[string]any{
-			"entries": entries,
-		})
-	}
+func validatePort(port int) bool {
+	return 1 <= port && port <= 65535
 }
 
-func spaHandler(distDir string) http.HandlerFunc {
-	fileServer := http.FileServer(http.Dir(distDir))
-	return func(rw http.ResponseWriter, r *http.Request) {
-		path := distDir + r.URL.Path
-		if info, err := os.Stat(path); err == nil && !info.IsDir() {
-			fileServer.ServeHTTP(rw, r)
-			return
-		}
-		http.ServeFile(rw, r, distDir+"/index.html")
+func initMux(w *wakaru.Wakaru) *http.ServeMux {
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /api/translate", translateHandler(w))
+	mux.HandleFunc("GET /api/word/{text}", wordHandler(w))
+	mux.HandleFunc("POST /api/anki/note", ankiHandler(w))
+	mux.HandleFunc("GET /{path...}", spaHandler("frontend/dist"))
+
+	return mux
+}
+
+func initServer(port string, handler *http.ServeMux) *http.Server {
+	return &http.Server{
+		Addr:    port,
+		Handler: handler,
 	}
 }
