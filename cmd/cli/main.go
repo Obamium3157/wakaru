@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"time"
 
 	"wakaru/internal/examples"
@@ -24,7 +25,17 @@ func main() {
 
 	input := mustGetInputFromArgs()
 
-	w, err := wakaru.NewWakaru(ctx, "sqlite3", os.Getenv("DB_PATH"))
+	ankiPort, err := strconv.Atoi(os.Getenv("ANKI_PORT"))
+	if err != nil {
+		log.Fatalf("failed parsing anki port: %v", err)
+	}
+
+	w, err := wakaru.NewWakaru(
+		ctx,
+		"sqlite3",
+		os.Getenv("DB_PATH"),
+		ankiPort,
+	)
 	if err != nil {
 		log.Fatal(err)
 	}

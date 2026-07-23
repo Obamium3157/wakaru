@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"wakaru/internal/anki"
 	"wakaru/internal/examples"
 	"wakaru/internal/jmdict/repository"
 	"wakaru/internal/tokenize"
@@ -60,13 +61,14 @@ type Wakaru struct {
 	db             *sql.DB
 	repo           repository.Repository
 	examplesClient *examples.Client
+	ankiClient     *anki.Client
 
 	lookupSet    map[string]bool
 	httpSem      chan struct{}
 	exampleCache sync.Map
 }
 
-func NewWakaru(ctx context.Context, sqlDriverName string, dbPath string) (*Wakaru, error) {
+func NewWakaru(ctx context.Context, sqlDriverName string, dbPath string, ankiPort int) (*Wakaru, error) {
 	db, err := openDB(sqlDriverName, dbPath)
 	if err != nil {
 		return nil, err
@@ -77,7 +79,12 @@ func NewWakaru(ctx context.Context, sqlDriverName string, dbPath string) (*Wakar
 		return nil, err
 	}
 
-	client := examples.NewClient()
+	examplesClient := examples.NewClient()
+
+	ankiClient, err := anki.NewClient(ankiPort)
+	if err != nil {
+		return nil, err
+	}
 
 	forms, err := repo.FindAllForms(ctx)
 	if err != nil {
@@ -89,7 +96,8 @@ func NewWakaru(ctx context.Context, sqlDriverName string, dbPath string) (*Wakar
 	return &Wakaru{
 		db:             db,
 		repo:           repo,
-		examplesClient: client,
+		examplesClient: examplesClient,
+		ankiClient:     ankiClient,
 		lookupSet:      lookupSet,
 		httpSem:        make(chan struct{}, maxAmountOfChannels),
 	}, nil
@@ -149,6 +157,19 @@ func (w *Wakaru) FindWord(ctx context.Context, text string, posMajor string) ([]
 		}
 	}
 	return w.repo.Find(ctx, text)
+}
+
+func (w *Wakaru) AddBasicNote(ctx context.Context, deckName, front, back string, tags []string) error {
+	if err := w.ankiClient.AddBasicNote(ctx, anki.AddBasicNoteRequest{
+		DeckName: deckName,
+		Front:    front,
+		Back:     back,
+		Tags:     tags,
+	}); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (w *Wakaru) Close() error {

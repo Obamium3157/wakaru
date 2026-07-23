@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 
 	"wakaru/internal/wakaru"
 
@@ -21,7 +22,17 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 
-	w, err := wakaru.NewWakaru(ctx, "sqlite3", os.Getenv("DB_PATH"))
+	ankiPort, err := strconv.Atoi(os.Getenv("ANKI_PORT"))
+	if err != nil {
+		log.Fatalf("failed parsing anki port: %v", err)
+	}
+
+	w, err := wakaru.NewWakaru(
+		ctx,
+		"sqlite3",
+		os.Getenv("DB_PATH"),
+		ankiPort,
+	)
 	if err != nil {
 		log.Fatal(err)
 	}

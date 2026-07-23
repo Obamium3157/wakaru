@@ -70,7 +70,13 @@ func (c *Client) Search(ctx context.Context, params SearchParameters) ([]Example
 		reqStart := time.Now()
 		resp, err := c.getResponse(ctx, url.String())
 		if err != nil {
-			log.Printf("tatoeba attempt %d for %q failed: %v (%v)", attempt, params.Word, err, time.Since(reqStart))
+			log.Printf(
+				"tatoeba attempt %d for %q failed: %v (%v)",
+				attempt,
+				params.Word,
+				err,
+				time.Since(reqStart),
+			)
 			lastErr = err
 			continue
 		}
