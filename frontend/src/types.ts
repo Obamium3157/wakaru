@@ -38,7 +38,7 @@ export interface Example {
   text: string;
 }
 
-export interface AddNoteRequest {
+export interface AddBasicNoteRequest {
   deckName: string;
   front: string;
   back: string;

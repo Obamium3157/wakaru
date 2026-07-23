@@ -1,4 +1,4 @@
-import type { Entry, TranslateResponse } from "./types";
+import type { AddBasicNoteRequest, Entry, TranslateResponse } from "./types";
 
 export async function translate(text: string): Promise<TranslateResponse> {
   const res = await fetch("/api/translate", {
@@ -30,4 +30,19 @@ export async function fetchWord(text: string, posMajor?: string): Promise<{ entr
   }
 
   return res.json();
+}
+
+export async function addBasicNote(req: AddBasicNoteRequest): Promise<void> {
+  const res = await fetch("/api/anki/note", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(req)
+  });
+
+  if (!res.ok) {
+    const message = await res.text();
+    throw new Error(message || `request failed: ${res.status}`);
+  }
 }
