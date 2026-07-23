@@ -37,3 +37,10 @@ export interface Example {
   id: number;
   text: string;
 }
+
+export interface AddNoteRequest {
+  deckName: string;
+  front: string;
+  back: string;
+  tags?: string[];
+}
