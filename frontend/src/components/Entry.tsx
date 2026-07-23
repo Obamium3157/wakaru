@@ -1,3 +1,4 @@
+import { useAddBasicAnkiCard } from "../hooks/useAddBasicAnkiCard";
 import { useGroupedByPos } from "../hooks/useGroupedByPos";
 import type { Entry as EntryType } from "../types"
 import { buildRubySegments } from "../utils/furigana"
@@ -14,6 +15,7 @@ export function Entry({ entry }: EntryProps) {
   const kanaStr = entry.kana?.[0] ?? "";
   const segments = entry.ruby ?? buildRubySegments(kanjiStr, kanaStr);
   const groupedByPos = useGroupedByPos({ translations: entry.translations });
+  const { addBasicAnkiCard } = useAddBasicAnkiCard()
 
   return (
     <div className={styles.entry}>
@@ -24,6 +26,11 @@ export function Entry({ entry }: EntryProps) {
           <TranslationView pos={pos} senses={senses} />
         ))}
       </div>
+
+      <button onClick={() => addBasicAnkiCard({
+        front: "hehehe",
+        back: "hahaha",
+      })}>Create Anki card</button>
     </div>
   )
 }

@@ -65,13 +65,12 @@ func spaHandler(distDir string) http.HandlerFunc {
 	fileServer := http.FileServer(http.Dir(distDir))
 	return func(rw http.ResponseWriter, r *http.Request) {
 		path := filepath.Join(distDir, filepath.Clean(r.URL.Path))
-		if !strings.HasPrefix(path, filepath.Clean(distDir)+string(os.PathSeparator)) {
-			http.Error(rw, "forbidden", http.StatusForbidden)
-			return
-		}
-		if info, err := os.Stat(path); err == nil && !info.IsDir() {
-			fileServer.ServeHTTP(rw, r)
-			return
+		cleanDist := filepath.Clean(distDir)
+		if path == cleanDist || strings.HasPrefix(path, cleanDist+string(os.PathSeparator)) {
+			if info, err := os.Stat(path); err == nil && !info.IsDir() {
+				fileServer.ServeHTTP(rw, r)
+				return
+			}
 		}
 		http.ServeFile(rw, r, filepath.Join(distDir, "index.html"))
 	}
