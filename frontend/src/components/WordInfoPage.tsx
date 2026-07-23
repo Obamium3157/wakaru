@@ -20,7 +20,7 @@ export function WordInfoPage() {
         searchQuery
           ? `/?q=${encodeURIComponent(searchQuery)}`
           : "/"
-      } className={styles.backLink}>Back to results</Link>
+      } className={styles.backLink}>←Back to results</Link>
 
       {loading && <div className={styles.loading}>Loading...</div>}
       {error && <div className={styles.error}>Error: {error}</div>}
