@@ -27,7 +27,7 @@ export function Entry({ entry }: EntryProps) {
         ))}
       </div>
 
-      <button onClick={addBasicAnkiCard}>Create Anki card</button>
+      <button className={styles.ankiButton} onClick={addBasicAnkiCard}>Create Anki card</button>
     </div>
   )
 }
