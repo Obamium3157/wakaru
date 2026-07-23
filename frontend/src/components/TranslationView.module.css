@@ -1,0 +1,33 @@
+.senseGroup {
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 12px;
+}
+
+.senseGroup:last-child {
+  border-bottom: none;
+}
+
+.posLabel {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  margin-bottom: 6px;
+}
+
+.senseList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: 20px;
+}
+
+.sense {
+  font-size: 15px;
+}
+
+.gloss {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}

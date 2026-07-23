@@ -16,16 +16,16 @@ export function Results({ response, error }: ResultsProps) {
     return null;
   }
 
-  const tokensWithEntries = response.results.filter(
-    (r) => r.entries && r.entries.length > 0
-  );
+  const tokensWithEntries = response.results
+    .map((token, i) => ({ token, originalIndex: i }))
+    .filter(({ token }) => token.entries && token.entries.length > 0);
 
   return (
     <div className={styles.results}>
       <div className={styles.displayString}>{response.displayString}</div>
 
-      {tokensWithEntries.map((token, i) => (
-        <TokenCard token={token} key={i} />
+      {tokensWithEntries.map(({ token, originalIndex }) => (
+        <TokenCard token={token} index={originalIndex} key={originalIndex} />
       ))}
     </div>
   );

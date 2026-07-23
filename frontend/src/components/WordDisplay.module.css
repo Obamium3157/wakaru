@@ -1,0 +1,16 @@
+.header {
+  display: flex;
+  align-items: baseline;
+  font-size: 32px;
+  margin-bottom: 16px;
+}
+
+.kanji {
+  font-size: 32px;
+}
+
+.reading {
+  font-size: 16px;
+  color: var(--color-text-muted);
+  margin-bottom: 6px;
+}

@@ -1,41 +1,29 @@
-import type { Entry } from "../types"
+import { useGroupedByPos } from "../hooks/useGroupedByPos";
+import type { Entry as EntryType } from "../types"
 import { buildRubySegments } from "../utils/furigana"
 import styles from './Entry.module.css'
+import { TranslationView } from "./TranslationView";
+import { WordDisplay } from "./WordDisplay";
 
 interface EntryProps {
-  entry: Entry
+  entry: EntryType;
 }
 
 export function Entry({ entry }: EntryProps) {
   const kanjiStr = entry.kanji?.[0] ?? "";
   const kanaStr = entry.kana?.[0] ?? "";
   const segments = entry.ruby ?? buildRubySegments(kanjiStr, kanaStr);
+  const groupedByPos = useGroupedByPos({ translations: entry.translations });
 
   return (
-    <div className={styles.entry} key={entry.id}>
-      <div className={styles.entryHeader}>
-        {segments.map((seg, i) =>
-          seg.reading ? (
-            <ruby key={i} className={styles.kanji}>
-              {seg.text}<rt className={styles.reading}>{seg.reading}</rt>
-            </ruby>
-          ) : (
-            <span key={i}>
-              {seg.text}
-            </span>
-          )
-        )}
-      </div>
+    <div className={styles.entry}>
+      <WordDisplay segments={segments} />
 
-      <ol className={styles.translations}>
-        {entry.translations.map((t) => (
-          <li className={styles.sense} key={t.senseId}>
-            <span className={styles.gloss}>
-              {t.glosses.map(g => g.text).join(", ")}
-            </span>
-          </li>
+      <div className={styles.translations}>
+        {Object.entries(groupedByPos).map(([pos, senses]) => (
+          <TranslationView pos={pos} senses={senses} />
         ))}
-      </ol>
+      </div>
     </div>
   )
 }

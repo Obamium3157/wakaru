@@ -4,9 +4,44 @@
   padding: 16px;
 }
 
-.examples li {
-  position: relative;
-  padding-left: 12px;
-  margin-bottom: 4px;
-  font-size: 14px;
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.moreDetails {
+  font-size: 13px;
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.moreDetails:hover {
+  text-decoration: underline;
+}
+
+.entryNav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.navBtn {
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 2px 8px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.navBtn:hover {
+  background: var(--color-hover);
+}
+
+.entryCount {
+  font-size: 12px;
+  color: var(--color-text-muted);
 }

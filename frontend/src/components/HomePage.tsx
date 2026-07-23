@@ -21,7 +21,7 @@ export function HomePage() {
 
   return (
     <div className={styles.page}>
-      <h1>wakaru</h1>
+      <h1 className={styles.title}>wakaru</h1>
       <div className={styles.content}>
         <SearchInput onSubmit={handleTranslate} loading={loading} />
         <Results response={response} error={error} />

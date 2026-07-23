@@ -1,4 +1,14 @@
+@font-face {
+  font-family: 'Noto Sans JP';
+  src: url('/fonts/NotoSansJP-VariableFont_wght.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
+  --font-family: 'Noto Sans JP', sans-serif;
+
   --color-primary: #334155;
   --color-primary-hover: #1E293B;
   --color-accent: #EA580C;
@@ -24,4 +34,9 @@
 
 * {
   box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-family);
 }

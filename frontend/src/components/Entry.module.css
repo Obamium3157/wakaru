@@ -6,41 +6,8 @@
   margin-bottom: 0;
 }
 
-.entryHeader {
-  display: flex;
-  align-items: baseline;
-  font-size: 22px;
-  margin-bottom: 8px;
-}
-
-.kanji {
-  font-size: 22px;
-}
-
-.reading {
-  font-size: 12px;
-  color: var(--color-text-muted);
-  margin-bottom: 4px;
-}
-
-
 .translations {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-}
-
-.sense {
-  margin-bottom: 4px;
-}
-
-.sense:last-child {
-  border-bottom: 1px solid var(--color-border);
-}
-
-.gloss {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 15px;
+  gap: 16px;
 }

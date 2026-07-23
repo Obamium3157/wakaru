@@ -6,6 +6,7 @@ export interface TranslateResponse {
 export interface TokenResult {
   entries: Entry[];
   examples: Example[];
+  posMajor: string;
 }
 
 export interface Entry {
@@ -23,6 +24,7 @@ export interface RubySegment {
 
 export interface Translation {
   senseId: number;
+  pos?: string;
   glosses: Gloss[];
 }
 
