@@ -1,4 +1,4 @@
-import type { AddBasicNoteRequest, Entry, TranslateResponse } from "./types";
+import type { AddBasicNoteRequest, Entry, Example, TranslateResponse } from "./types";
 
 export async function translate(text: string): Promise<TranslateResponse> {
   const res = await fetch("/api/translate", {
@@ -13,6 +13,102 @@ export async function translate(text: string): Promise<TranslateResponse> {
   }
 
   return res.json();
+}
+
+type SSECallbacks = {
+  onInit: (response: TranslateResponse) => void;
+  onExamples: (index: number, examples: Example[]) => void;
+  onDone: () => void;
+  onError: (error: Error) => void;
+}
+
+
+export function translateStream(
+  text: string,
+  callbacks: SSECallbacks,
+): AbortController {
+  const controller = new AbortController();
+
+  fetch("/api/translate", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+    signal: controller.signal,
+  })
+    .then((res) => {
+      checkResponse(res);
+      return readSSEStream(res.body!.getReader(), callbacks);
+    })
+    .catch(callbacks.onError);
+
+  return controller;
+}
+
+
+function checkResponse(res: Response): void {
+  if (!res.ok) {
+    throw new Error(`request failed: ${res.status}`);
+  }
+}
+
+
+async function readSSEStream(reader: ReadableStreamDefaultReader<Uint8Array>, callbacks: SSECallbacks): Promise<void> {
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+
+    buffer += decoder.decode(value, { stream: true });
+    const events = buffer.split("\n\n");
+    buffer = events.pop()!;
+
+    for (const event of events) {
+      const parsed = parseSSEEvent(event.split("\n"));
+      if (parsed) {
+        handleSSEEvent(parsed, callbacks);
+      }
+    }
+  }
+}
+
+
+function parseSSEEvent(lines: string[]): { event: string; data: string } | null {
+  let event = "";
+  let data = "";
+
+  for (const line of lines) {
+    if (line.startsWith("event: ")) {
+      event = line.slice(7);
+    } else if (line.startsWith("data: ")) {
+      data = line.slice(6);
+    }
+  }
+
+  if (!event || !data) {
+    return null;
+  }
+
+  return { event, data };
+}
+
+
+function handleSSEEvent(raw: { event: string; data: string }, callbacks: SSECallbacks): void {
+  const parsed = JSON.parse(raw.data);
+  switch (raw.event) {
+    case "init":
+      callbacks.onInit(parsed);
+      break;
+    case "examples":
+      callbacks.onExamples(parsed.index, parsed.examples);
+      break;
+    case "done":
+      callbacks.onDone();
+      break;
+  }
 }
 
 export async function fetchWord(text: string, posMajor?: string): Promise<{ entries: Entry[] }> {
