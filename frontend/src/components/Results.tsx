@@ -5,10 +5,10 @@ import styles from './Results.module.css'
 interface ResultsProps {
   response: TranslateResponse | null;
   error: string | null;
+  examplesLoading?: boolean;
 }
 
-
-export function Results({ response, error }: ResultsProps) {
+export function Results({ response, error, examplesLoading }: ResultsProps) {
   if (error) {
     return <div className={styles.error}>{error}</div>;
   }
@@ -25,7 +25,7 @@ export function Results({ response, error }: ResultsProps) {
       <div className={styles.displayString}>{response.displayString}</div>
 
       {tokensWithEntries.map(({ token, originalIndex }) => (
-        <TokenCard token={token} index={originalIndex} key={originalIndex} />
+        <TokenCard token={token} index={originalIndex} key={originalIndex} examplesLoading={examplesLoading && !token.examples} />
       ))}
     </div>
   );

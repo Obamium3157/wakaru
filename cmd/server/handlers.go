@@ -34,6 +34,9 @@ func translateHandler(w *wakaru.Wakaru) http.HandlerFunc {
 		}
 
 		sendEvent := func(event string, data any) {
+			if r.Context().Err() != nil {
+				return
+			}
 			jsonBytes, _ := json.Marshal(data)
 			fmt.Fprintf(rw, "event: %s\ndata: %s\n\n", event, jsonBytes)
 			flusher.Flush()

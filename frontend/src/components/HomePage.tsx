@@ -9,6 +9,7 @@ export function HomePage() {
     response,
     error,
     loading,
+    examplesLoading,
     initialQuery,
     handleTranslate,
   } = useTranslator();
@@ -24,7 +25,7 @@ export function HomePage() {
       <h1 className={styles.title}>wakaru</h1>
       <div className={styles.content}>
         <SearchInput onSubmit={handleTranslate} loading={loading} />
-        <Results response={response} error={error} />
+        <Results response={response} error={error} examplesLoading={examplesLoading} />
       </div>
     </div>
   );

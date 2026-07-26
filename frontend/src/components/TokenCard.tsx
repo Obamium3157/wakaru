@@ -4,7 +4,7 @@ import type { TranslateResponse } from "../types";
 import { Entry } from "./Entry";
 import styles from "./TokenCard.module.css"
 
-export function TokenCard({ token, index }: { token: TranslateResponse["results"][number]; index: number }) {
+export function TokenCard({ token, index, examplesLoading }: { token: TranslateResponse["results"][number]; index: number; examplesLoading?: boolean }) {
   const { index: entryIndex, scrollForwards, scrollBackwards } = useScroll(token.entries);
   const entry = token.entries[entryIndex];
   const wordParam = encodeURIComponent(entry.kanji?.[0] ?? entry.kana?.[0] ?? "");
@@ -21,7 +21,7 @@ export function TokenCard({ token, index }: { token: TranslateResponse["results"
           state={{ examples: token.examples, searchQuery }}
           className={styles.moreDetails}
         >
-          More details...
+          {examplesLoading ? "Loading examples..." : "More details..."}
         </Link>
 
         {token.entries.length > 1 && (
