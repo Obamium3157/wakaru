@@ -57,6 +57,12 @@ type Result struct {
 	PosMajor string             `json:"posMajor"`
 }
 
+type StreamCallbacks struct {
+	OnInit     func(displayString string, results []Result)
+	OnExamples func(index int, examples []examples.Example)
+	OnDone     func()
+}
+
 type Wakaru struct {
 	db             *sql.DB
 	repo           repository.Repository
@@ -103,43 +109,91 @@ func NewWakaru(ctx context.Context, sqlDriverName string, dbPath string, ankiPor
 	}, nil
 }
 
-func (w *Wakaru) Run(ctx context.Context, input string) (string, []Result, error) {
+func (w *Wakaru) RunStream(ctx context.Context, input string, cb StreamCallbacks) error {
 	tokens, err := w.getDisplayTokens(input)
 	if err != nil {
-		return "", nil, err
+		return err
 	}
 
-	httpTokens := 0
-	for _, t := range tokens {
-		if t.Lookup != nil {
-			httpTokens++
-		}
-	}
+	httpTokens := countTokensForLookup(tokens)
 	log.Printf("tokens: %d total, %d with lookup", len(tokens), httpTokens)
 
 	results := make([]Result, len(tokens))
-	g, ctx := errgroup.WithContext(ctx)
 
+	if err := w.resolveEntries(ctx, tokens, results); err != nil {
+		return err
+	}
+
+	if cb.OnInit != nil {
+		cb.OnInit(formDisplaySearchString(tokens), results)
+	}
+
+	if err := w.resolveExamples(ctx, tokens, results, cb.OnExamples); err != nil {
+		return err
+	}
+
+	if cb.OnDone != nil {
+		cb.OnDone()
+	}
+
+	return nil
+}
+
+func (w *Wakaru) resolveEntries(ctx context.Context, tokens []tokenize.DisplayToken, results []Result) error {
+	g, ctx := errgroup.WithContext(ctx)
 	for i, t := range tokens {
 		g.Go(func() error {
 			entries, err := w.FindEntries(ctx, t)
 			if err != nil {
 				return err
 			}
-			examples := w.FindExamples(ctx, t)
+
 			results[i] = Result{
 				Entries:  entries,
-				Examples: examples,
 				PosMajor: t.POSMajor.String(),
+			}
+
+			return nil
+		})
+	}
+	return g.Wait()
+}
+
+func (w *Wakaru) resolveExamples(
+	ctx context.Context,
+	tokens []tokenize.DisplayToken,
+	results []Result,
+	onExamples func(int, []examples.Example),
+) error {
+	g, ctx := errgroup.WithContext(ctx)
+	for i, t := range tokens {
+		g.Go(func() error {
+			examples := w.FindExamples(ctx, t)
+			results[i].Examples = examples
+			if onExamples != nil {
+				onExamples(i, examples)
 			}
 			return nil
 		})
 	}
+	return g.Wait()
+}
 
-	if err := g.Wait(); err != nil {
+func (w *Wakaru) Run(ctx context.Context, input string) (string, []Result, error) {
+	var displayString string
+	var results []Result
+
+	err := w.RunStream(ctx, input, StreamCallbacks{
+		OnInit: func(ds string, r []Result) {
+			displayString = ds
+			results = r
+		},
+	})
+	if err != nil {
 		return "", nil, err
 	}
-	return formDisplaySearchString(tokens), results, nil
+
+	return displayString, results, nil
 }
 
 func (w *Wakaru) FindWord(ctx context.Context, text string, posMajor string) ([]repository.Entry, error) {
@@ -188,6 +242,17 @@ func (w *Wakaru) getDisplayTokens(input string) ([]tokenize.DisplayToken, error)
 	}
 
 	return displayTokens, nil
+}
+
+func countTokensForLookup(tokens []tokenize.DisplayToken) int {
+	httpTokens := 0
+	for _, t := range tokens {
+		if t.Lookup != nil {
+			httpTokens++
+		}
+	}
+
+	return httpTokens
 }
 
 func (w *Wakaru) FindEntries(ctx context.Context, t tokenize.DisplayToken) ([]repository.Entry, error) {
