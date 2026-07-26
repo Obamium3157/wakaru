@@ -14,13 +14,13 @@ import (
 )
 
 const (
-	relevanceSO string = "relevance"
-	wordsSO            = "words"
-	revWordsSO         = "-words"
-	createdSO          = "created"
-	revCreated         = "-created"
-	modifiedSO         = "modified"
-	randomSO           = "random"
+	relevanceSO = "relevance"
+	wordsSO     = "words"
+	revWordsSO  = "-words"
+	createdSO   = "created"
+	revCreated  = "-created"
+	modifiedSO  = "modified"
+	randomSO    = "random"
 
 	amountOfRetries int = 2
 )
@@ -49,6 +49,10 @@ type SearchParameters struct {
 }
 
 func (c *Client) Search(ctx context.Context, params SearchParameters) ([]Example, error) {
+	if err := params.validate(); err != nil {
+		return nil, err
+	}
+
 	url, err := url.Parse(c.baseURL)
 	if err != nil {
 		return nil, err
@@ -106,6 +110,20 @@ func (c *Client) Search(ctx context.Context, params SearchParameters) ([]Example
 	}
 
 	return nil, lastErr
+}
+
+func (p *SearchParameters) validate() error {
+	if p.Word == "" {
+		return fmt.Errorf("word should be non-empty string")
+	}
+
+	switch p.Sort {
+	case relevanceSO, wordsSO, revWordsSO, createdSO, revCreated,
+		modifiedSO, randomSO:
+		return nil
+	default:
+		return fmt.Errorf("unknown sort type: %s", p.Sort)
+	}
 }
 
 func (c *Client) getResponse(ctx context.Context, url string) (*http.Response, error) {
