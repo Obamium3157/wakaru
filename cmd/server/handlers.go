@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -26,7 +27,8 @@ func translateHandler(w *wakaru.Wakaru) http.HandlerFunc {
 
 		dispStr, results, err := w.Run(r.Context(), req.Text)
 		if err != nil {
-			http.Error(rw, err.Error(), http.StatusInternalServerError)
+			log.Printf("translate error: %v", err)
+			http.Error(rw, "internal server error", http.StatusInternalServerError)
 			return
 		}
 
@@ -50,7 +52,8 @@ func wordHandler(w *wakaru.Wakaru) http.HandlerFunc {
 
 		entries, err := w.FindWord(r.Context(), text, posMajor)
 		if err != nil {
-			http.Error(rw, err.Error(), http.StatusInternalServerError)
+			log.Printf("word lookup error: %v", err)
+			http.Error(rw, "internal server error", http.StatusInternalServerError)
 			return
 		}
 
@@ -101,7 +104,8 @@ func ankiHandler(w *wakaru.Wakaru) http.HandlerFunc {
 			req.Back,
 			req.Tags,
 		); err != nil {
-			http.Error(rw, err.Error(), http.StatusInternalServerError)
+			log.Printf("anki note error: %v", err)
+			http.Error(rw, "internal server error", http.StatusInternalServerError)
 			return
 		}
 
