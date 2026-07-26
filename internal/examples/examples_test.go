@@ -11,7 +11,7 @@ func TestSetRawQuery(t *testing.T) {
 	u, err := url.Parse("https://example.com")
 	assert.NoError(t, err)
 
-	setRawQuery(u, "試験")
+	setRawQuery(u, SearchParameters{Word: "試験", Sort: "relevance"})
 
 	assert.Equal(
 		t,

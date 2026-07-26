@@ -1,6 +1,7 @@
 package examples
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -46,7 +47,7 @@ func TestClientSearch_Success(t *testing.T) {
 
 	client := newClientForTesting(server.URL+"/v1/sentences", server.Client())
 
-	got, err := client.Search("試験")
+	got, err := client.Search(context.Background(), SearchParameters{Word: "試験", Sort: "relevance"})
 
 	require.NoError(t, err)
 	assert.Equal(t, []Example{
@@ -69,7 +70,7 @@ func TestClientSearch_HTTPError(t *testing.T) {
 
 	client := newClientForTesting(server.URL, server.Client())
 
-	got, err := client.Search("試験")
+	got, err := client.Search(context.Background(), SearchParameters{Word: "試験", Sort: "relevance"})
 
 	require.Error(t, err)
 	assert.Nil(t, got)
@@ -86,7 +87,7 @@ func TestClientSearch_InvalidJSON(t *testing.T) {
 
 	client := newClientForTesting(server.URL, server.Client())
 
-	got, err := client.Search("試験")
+	got, err := client.Search(context.Background(), SearchParameters{Word: "試験", Sort: "relevance"})
 
 	require.Error(t, err)
 	assert.Nil(t, got)
@@ -102,7 +103,7 @@ func TestClientSearch_EmptyResult(t *testing.T) {
 
 	client := newClientForTesting(server.URL, server.Client())
 
-	got, err := client.Search("不存在")
+	got, err := client.Search(context.Background(), SearchParameters{Word: "不存在", Sort: "relevance"})
 
 	require.NoError(t, err)
 	assert.Empty(t, got)
