@@ -42,7 +42,7 @@ func main() {
 	defer w.Close()
 
 	start := time.Now()
-	dispStr, results, err := w.Run(ctx, input)
+	dispStr, results, err := w.RunSynchronous(ctx, input)
 	elapsed := time.Since(start)
 	if err != nil {
 		if ctx.Err() != nil {

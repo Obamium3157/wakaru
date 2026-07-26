@@ -2,12 +2,14 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"wakaru/internal/examples"
 	"wakaru/internal/wakaru"
 )
 
@@ -25,18 +27,44 @@ func translateHandler(w *wakaru.Wakaru) http.HandlerFunc {
 			return
 		}
 
-		dispStr, results, err := w.Run(r.Context(), req.Text)
-		if err != nil {
-			log.Printf("translate error: %v", err)
-			http.Error(rw, "internal server error", http.StatusInternalServerError)
+		flusher, ok := rw.(http.Flusher)
+		if !ok {
+			http.Error(rw, "streaming not supported", http.StatusInternalServerError)
 			return
 		}
 
-		rw.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(rw).Encode(map[string]any{
-			"displayString": dispStr,
-			"results":       results,
+		sendEvent := func(event string, data any) {
+			jsonBytes, _ := json.Marshal(data)
+			fmt.Fprintf(rw, "event: %s\ndata: %s\n\n", event, jsonBytes)
+			flusher.Flush()
+		}
+
+		rw.Header().Set("Content-Type", "text/event-stream")
+		rw.Header().Set("Cache-Control", "no-cache")
+		rw.Header().Set("Connection", "keep-alive")
+		rw.Header().Set("X-Accel-Buffering", "no")
+
+		err := w.RunStream(r.Context(), req.Text, wakaru.StreamCallbacks{
+			OnInit: func(displayString string, results []wakaru.Result) {
+				sendEvent("init", map[string]any{
+					"displayString": displayString,
+					"results":       results,
+				})
+			},
+			OnExamples: func(index int, examples []examples.Example) {
+				sendEvent("examples", map[string]any{
+					"index":    index,
+					"examples": examples,
+				})
+			},
+			OnDone: func() {
+				sendEvent("done", map[string]any{})
+			},
 		})
+		if err != nil {
+			log.Printf("translate error: %v\n", err)
+			return
+		}
 	}
 }
 

@@ -179,7 +179,7 @@ func (w *Wakaru) resolveExamples(
 	return g.Wait()
 }
 
-func (w *Wakaru) Run(ctx context.Context, input string) (string, []Result, error) {
+func (w *Wakaru) RunSynchronous(ctx context.Context, input string) (string, []Result, error) {
 	var displayString string
 	var results []Result
 
