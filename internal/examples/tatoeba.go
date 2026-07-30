@@ -62,6 +62,9 @@ func (c *Client) Search(ctx context.Context, params SearchParameters) ([]Example
 	var lastErr error
 
 	for attempt := range amountOfRetries {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
 		if attempt > 0 {
 			select {
 			case <-time.After(time.Second):

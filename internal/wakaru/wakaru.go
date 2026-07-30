@@ -289,6 +289,10 @@ func (w *Wakaru) FindExamples(ctx context.Context, t tokenize.DisplayToken) []ex
 		return nil
 	}
 
+	if ctx.Err() != nil {
+		return nil
+	}
+
 	if cached, ok := w.exampleCache.Load(*t.Lookup); ok {
 		return cached.([]examples.Example)
 	}
