@@ -1,25 +1,32 @@
-import { useEffect, useRef, useState } from "react";
-import { translateStream } from "../api";
+import { createContext, useContext, useRef, useState, type ReactNode } from "react";
 import type { TranslateResponse } from "../types";
+import { translateStream } from "../api";
 
-export function useTranslator() {
+interface TranslationContextValue {
+  response: TranslateResponse | null;
+  error: string | null;
+  loading: boolean;
+  examplesLoading: boolean;
+  handleTranslate: (text: string) => void;
+}
+
+const TranslationContext = createContext<TranslationContextValue | null>(null);
+
+export function TranslationProvider({ children }: { children: ReactNode }) {
   const [response, setResponse] = useState<TranslateResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [examplesLoading, setExamplesLoading] = useState(false);
   const controllerRef = useRef<AbortController | null>(null);
-  const [initialQuery] = useState(
-    () => new URLSearchParams(window.location.search).get("q") ?? ""
-  );
 
   function handleTranslate(text: string) {
     controllerRef.current?.abort();
     setLoading(true);
-    setExamplesLoading(false);
+    setExamplesLoading(true);
     setError(null);
     setResponse(null);
 
-    const controller = translateStream(text, {
+    controllerRef.current = translateStream(text, {
       onInit: (initResponse) => {
         setResponse(initResponse);
         setLoading(false);
@@ -35,35 +42,36 @@ export function useTranslator() {
           return { ...prev, results: newResults };
         });
       },
-      onDone: () => {
-        setExamplesLoading(false);
-      },
+      onDone: () => setExamplesLoading(false),
       onError: (err) => {
-        if (err.name === "AbortError") {
+        if (controllerRef.current?.signal.aborted) {
           return;
         }
         setError(err.message);
         setLoading(false);
         setExamplesLoading(false);
-      },
+      }
     });
-
-    controllerRef.current = controller;
   }
 
-  useEffect(() => {
-    return () => {
-      controllerRef.current?.abort();
-    };
-  }, []);
+  return (
+    <TranslationContext.Provider
+      value={{
+        response,
+        error,
+        loading,
+        examplesLoading,
+        handleTranslate
+      }}>
+      {children}
+    </TranslationContext.Provider>
+  )
+}
 
-  return {
-    response,
-    error,
-    loading,
-    examplesLoading,
-    initialQuery,
-    handleTranslate,
-  };
-
+export function useTranslator() {
+  const ctx = useContext(TranslationContext);
+  if (!ctx) {
+    throw new Error("useTranslation must be used within TranslationProvider");
+  }
+  return ctx;
 }
