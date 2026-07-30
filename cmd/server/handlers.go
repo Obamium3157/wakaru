@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -14,66 +16,39 @@ import (
 	"wakaru/internal/wakaru"
 )
 
+type translateRequest struct {
+	Text string `json:"text"`
+}
+
 func translateHandler(w *wakaru.Wakaru) http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
-		var req struct {
-			Text string `json:"text"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(rw, "invalid request body", http.StatusBadRequest)
-			return
-		}
-		if req.Text == "" {
-			http.Error(rw, "text is required", http.StatusBadRequest)
+		req, err := decodeTranslateRequest(r)
+		if err != nil {
+			http.Error(rw, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		flusher, ok := rw.(http.Flusher)
-		if !ok {
-			http.Error(rw, "streaming not supported", http.StatusInternalServerError)
+		sse, err := newSSEWriter(rw)
+		if err != nil {
+			http.Error(rw, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		var writeMu sync.Mutex
-		sendEvent := func(event string, data any) {
-			if r.Context().Err() != nil {
-				return
-			}
-			jsonBytes, err := json.Marshal(data)
-			if err != nil {
-				log.Printf("sendEvent marshal error: %v", err)
-				return
-			}
-
-			writeMu.Lock()
-			defer writeMu.Unlock()
-			if _, err := fmt.Fprintf(rw, "event: %s\ndata: %s\n\n", event, jsonBytes); err != nil {
-				log.Println(err)
-				return
-			}
-			flusher.Flush()
-		}
-
-		rw.Header().Set("Content-Type", "text/event-stream")
-		rw.Header().Set("Cache-Control", "no-cache")
-		rw.Header().Set("Connection", "keep-alive")
-		rw.Header().Set("X-Accel-Buffering", "no")
-
-		err := w.RunStream(r.Context(), req.Text, wakaru.StreamCallbacks{
+		err = w.RunStream(r.Context(), req.Text, wakaru.StreamCallbacks{
 			OnInit: func(displayString string, results []wakaru.Result) {
-				sendEvent("init", map[string]any{
+				sse.SendEvent(r.Context(), "init", map[string]any{
 					"displayString": displayString,
 					"results":       results,
 				})
 			},
-			OnExamples: func(index int, examples []examples.Example) {
-				sendEvent("examples", map[string]any{
+			OnExamples: func(index int, e []examples.Example) {
+				sse.SendEvent(r.Context(), "examples", map[string]any{
 					"index":    index,
-					"examples": examples,
+					"examples": e,
 				})
 			},
 			OnDone: func() {
-				sendEvent("done", map[string]any{})
+				sse.SendEvent(r.Context(), "done", map[string]any{})
 			},
 		})
 		if err != nil {
@@ -82,6 +57,63 @@ func translateHandler(w *wakaru.Wakaru) http.HandlerFunc {
 		}
 		log.Println("RunStream finished")
 	}
+}
+
+func decodeTranslateRequest(r *http.Request) (translateRequest, error) {
+	var req translateRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return req, errors.New("invalid request body")
+	}
+	if req.Text == "" {
+		return req, errors.New("text is required")
+	}
+
+	return req, nil
+}
+
+type sseWriter struct {
+	rw      http.ResponseWriter
+	flusher http.Flusher
+	writeMu sync.Mutex
+}
+
+func newSSEWriter(rw http.ResponseWriter) (*sseWriter, error) {
+	flusher, ok := rw.(http.Flusher)
+	if !ok {
+		return nil, errors.New("streaming not supported")
+	}
+
+	rw.Header().Set("Content-Type", "text/event-stream")
+	rw.Header().Set("Cache-Control", "no-cache")
+	rw.Header().Set("Connection", "keep-alive")
+	rw.Header().Set("X-Accel-Buffering", "no")
+
+	return &sseWriter{
+		rw:      rw,
+		flusher: flusher,
+	}, nil
+}
+
+func (w *sseWriter) SendEvent(ctx context.Context, event string, data any) {
+	if ctx.Err() != nil {
+		return
+	}
+
+	jsonBytes, err := json.Marshal(data)
+	if err != nil {
+		log.Printf("sendEvent marshal error: %v", err)
+		return
+	}
+
+	w.writeMu.Lock()
+	defer w.writeMu.Unlock()
+
+	if _, err := fmt.Fprintf(w.rw, "event: %s\ndata: %s\n\n", event, jsonBytes); err != nil {
+		log.Println(err)
+		return
+	}
+
+	w.flusher.Flush()
 }
 
 func wordHandler(w *wakaru.Wakaru) http.HandlerFunc {
