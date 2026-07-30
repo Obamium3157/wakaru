@@ -20,6 +20,7 @@ export function TranslationProvider({ children }: { children: ReactNode }) {
   const controllerRef = useRef<AbortController | null>(null);
 
   function handleTranslate(text: string) {
+    console.log('[handleTranslate]', text);
     controllerRef.current?.abort();
     setLoading(true);
     setExamplesLoading(true);
@@ -28,6 +29,8 @@ export function TranslationProvider({ children }: { children: ReactNode }) {
 
     controllerRef.current = translateStream(text, {
       onInit: (initResponse) => {
+        console.log('[onInit]', initResponse);
+        setError(null);
         setResponse(initResponse);
         setLoading(false);
         setExamplesLoading(true);
@@ -42,9 +45,13 @@ export function TranslationProvider({ children }: { children: ReactNode }) {
           return { ...prev, results: newResults };
         });
       },
-      onDone: () => setExamplesLoading(false),
+      onDone: () => {
+        console.log('[onDone]');
+        setExamplesLoading(false);
+      },
       onError: (err) => {
-        if (controllerRef.current?.signal.aborted) {
+        console.log('[onError]', err.name, err.message);
+        if (err.name === 'AbortError') {
           return;
         }
         setError(err.message);

@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 	"strings"
 
 	"wakaru/internal/sqlutils"
@@ -117,7 +118,9 @@ func (r *SQLiteRepo) FindAllForms(ctx context.Context) ([]string, error) {
 		return nil, err
 	}
 	defer func() {
-		_ = rows.Close()
+		if err := rows.Close(); err != nil {
+			log.Printf("failed to close rows: %v", err)
+		}
 	}()
 
 	var forms []string
@@ -139,7 +142,9 @@ func (r *SQLiteRepo) FindAllForms(ctx context.Context) ([]string, error) {
 
 func (r *SQLiteRepo) loadEntries(ctx context.Context, rows *sql.Rows) ([]Entry, error) {
 	defer func() {
-		_ = rows.Close()
+		if err := rows.Close(); err != nil {
+			log.Printf("failed to close rows: %v", err)
+		}
 	}()
 
 	var entries []Entry
@@ -172,7 +177,9 @@ func (r *SQLiteRepo) loadKanji(ctx context.Context, wordID string) ([]string, er
 		return nil, err
 	}
 	defer func() {
-		_ = rows.Close()
+		if err := rows.Close(); err != nil {
+			log.Printf("failed to close rows: %v", err)
+		}
 	}()
 
 	var result []string
@@ -200,7 +207,9 @@ func (r *SQLiteRepo) loadKana(ctx context.Context, wordID string) ([]string, err
 		return nil, err
 	}
 	defer func() {
-		_ = rows.Close()
+		if err := rows.Close(); err != nil {
+			log.Printf("failed to close rows: %v", err)
+		}
 	}()
 
 	var result []string
@@ -228,7 +237,9 @@ func (r *SQLiteRepo) loadTranslations(ctx context.Context, wordID string) ([]Tra
 		return nil, err
 	}
 	defer func() {
-		_ = rows.Close()
+		if err := rows.Close(); err != nil {
+			log.Printf("failed to close rows: %v", err)
+		}
 	}()
 
 	var translations []Translation
@@ -308,7 +319,9 @@ func (r *SQLiteRepo) loadKanaReadingsForKanji(ctx context.Context, wordID string
 		return nil, err
 	}
 	defer func() {
-		_ = rows.Close()
+		if err := rows.Close(); err != nil {
+			log.Printf("failed to close rows: %v", err)
+		}
 	}()
 
 	result := make(map[string]string)

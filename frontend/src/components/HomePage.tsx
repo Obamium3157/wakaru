@@ -19,7 +19,7 @@ export function HomePage() {
     if (initialQuery) {
       handleTranslate(initialQuery);
     }
-  }, []);
+  }, [initialQuery]);
 
   return (
     <div className={styles.page}>

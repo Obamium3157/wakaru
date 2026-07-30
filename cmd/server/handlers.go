@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"wakaru/internal/examples"
 	"wakaru/internal/wakaru"
@@ -33,12 +34,23 @@ func translateHandler(w *wakaru.Wakaru) http.HandlerFunc {
 			return
 		}
 
+		var writeMu sync.Mutex
 		sendEvent := func(event string, data any) {
 			if r.Context().Err() != nil {
 				return
 			}
-			jsonBytes, _ := json.Marshal(data)
-			fmt.Fprintf(rw, "event: %s\ndata: %s\n\n", event, jsonBytes)
+			jsonBytes, err := json.Marshal(data)
+			if err != nil {
+				log.Printf("sendEvent marshal error: %v", err)
+				return
+			}
+
+			writeMu.Lock()
+			defer writeMu.Unlock()
+			if _, err := fmt.Fprintf(rw, "event: %s\ndata: %s\n\n", event, jsonBytes); err != nil {
+				log.Println(err)
+				return
+			}
 			flusher.Flush()
 		}
 
@@ -68,6 +80,7 @@ func translateHandler(w *wakaru.Wakaru) http.HandlerFunc {
 			log.Printf("translate error: %v\n", err)
 			return
 		}
+		log.Println("RunStream finished")
 	}
 }
 
@@ -89,9 +102,11 @@ func wordHandler(w *wakaru.Wakaru) http.HandlerFunc {
 		}
 
 		rw.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(rw).Encode(map[string]any{
+		if err := json.NewEncoder(rw).Encode(map[string]any{
 			"entries": entries,
-		})
+		}); err != nil {
+			log.Printf("word lookup encode error: %v", err)
+		}
 	}
 }
 

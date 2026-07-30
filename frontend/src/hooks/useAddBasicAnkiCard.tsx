@@ -25,9 +25,14 @@ export function useAddBasicAnkiCard({ entry, segments }: CreateBasicAnkiCardProp
       back,
     };
 
-    addBasicNote(request).then(() => {
-      window.alert("Card created successfully.");
-    });
+    addBasicNote(request)
+      .then(() => {
+        window.alert("Card created successfully.");
+      })
+      .catch((e) => {
+        const message = e instanceof Error ? e.message : "unknown error";
+        window.alert(`Failed to create card: ${message}`);
+      })
   }
 
   return {

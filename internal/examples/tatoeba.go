@@ -88,7 +88,9 @@ func (c *Client) Search(ctx context.Context, params SearchParameters) ([]Example
 		}
 
 		body, err := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			log.Printf("tatoeba attempt %d for %q: failed to close response body: %v", attempt, params.Word, err)
+		}
 		if err != nil {
 			log.Printf(
 				"tatoeba attempt %d for %q: failed to read body: %v (%v)",

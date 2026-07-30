@@ -279,7 +279,12 @@ func (w *Wakaru) FindExamples(ctx context.Context, t tokenize.DisplayToken) []ex
 	}
 
 	if cached, ok := w.exampleCache.Load(*t.Lookup); ok {
-		return cached.([]examples.Example)
+		examples, ok := cached.([]examples.Example)
+		if !ok {
+			log.Printf("unexpected type in example cache for %q: %T", *t.Lookup, cached)
+		} else {
+			return examples
+		}
 	}
 
 	select {
@@ -294,7 +299,12 @@ func (w *Wakaru) FindExamples(ctx context.Context, t tokenize.DisplayToken) []ex
 	}
 
 	if cached, ok := w.exampleCache.Load(*t.Lookup); ok {
-		return cached.([]examples.Example)
+		examples, ok := cached.([]examples.Example)
+		if !ok {
+			log.Printf("unexpected type in example cache for %q: %T", *t.Lookup, cached)
+		} else {
+			return examples
+		}
 	}
 
 	examples, err := w.examplesClient.Search(ctx, examples.SearchParameters{
