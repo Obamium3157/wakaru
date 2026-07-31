@@ -1,16 +1,18 @@
 // Package wakaru provides Japanese text analysis by combining morphological
 // tokenization using Kagome, JMDict dictionary lookups, and example sentence
-// retrieval from the Tatoeba API.
+// retrieval from the Tatoeba API and an AI example generator.
 package wakaru
 
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"log"
 	"strings"
 	"sync"
 	"time"
 
+	"wakaru/internal/ai"
 	"wakaru/internal/anki"
 	"wakaru/internal/examples"
 	"wakaru/internal/jmdict/repository"
@@ -68,13 +70,20 @@ type Wakaru struct {
 	repo           repository.Repository
 	examplesClient *examples.Client
 	ankiClient     *anki.Client
+	aiClient       ai.ExampleGenerator
 
 	lookupSet    map[string]bool
 	httpSem      chan struct{}
 	exampleCache sync.Map
 }
 
-func NewWakaru(ctx context.Context, sqlDriverName string, dbPath string, ankiPort int) (*Wakaru, error) {
+func NewWakaru(
+	ctx context.Context,
+	sqlDriverName string,
+	dbPath string,
+	ankiPort int,
+	aiClient ai.ExampleGenerator,
+) (*Wakaru, error) {
 	db, err := openDB(sqlDriverName, dbPath)
 	if err != nil {
 		return nil, err
@@ -104,6 +113,7 @@ func NewWakaru(ctx context.Context, sqlDriverName string, dbPath string, ankiPor
 		repo:           repo,
 		examplesClient: examplesClient,
 		ankiClient:     ankiClient,
+		aiClient:       aiClient,
 		lookupSet:      lookupSet,
 		httpSem:        make(chan struct{}, maxAmountOfChannels),
 	}, nil
@@ -231,6 +241,14 @@ func (w *Wakaru) AddBasicNote(ctx context.Context, deckName, front, back string,
 	}
 
 	return nil
+}
+
+func (w *Wakaru) GenerateAIExamples(ctx context.Context, word string) ([]ai.GeneratedExample, error) {
+	if w.aiClient == nil {
+		return nil, errors.New("ai example generator not configured")
+	}
+
+	return w.aiClient.GenerateExamples(ctx, word)
 }
 
 func (w *Wakaru) Close() error {

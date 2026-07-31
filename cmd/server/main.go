@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"strconv"
 
+	"wakaru/internal/ai"
 	"wakaru/internal/wakaru"
 
 	"github.com/joho/godotenv"
@@ -27,11 +28,20 @@ func main() {
 		log.Fatalf("failed parsing anki port: %v", err)
 	}
 
+	exampleGenerator, err := ai.New(ctx, ai.ClientConfig{
+		Model:       "gemini-2.5-flash",
+		Temperature: 0.8,
+	}, os.Getenv("GEMINI_API_KEY"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	w, err := wakaru.NewWakaru(
 		ctx,
 		"sqlite3",
 		os.Getenv("DB_PATH"),
 		ankiPort,
+		exampleGenerator,
 	)
 	if err != nil {
 		log.Fatal(err)

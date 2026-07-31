@@ -35,6 +35,7 @@ func main() {
 		"sqlite3",
 		os.Getenv("DB_PATH"),
 		ankiPort,
+		nil,
 	)
 	if err != nil {
 		log.Fatal(err)

@@ -10,8 +10,8 @@ import (
 )
 
 type ClientConfig struct {
-	model       string
-	temperature float32
+	Model       string
+	Temperature float32
 }
 
 type Client struct {
@@ -50,10 +50,19 @@ func (c *Client) GenerateExamples(ctx context.Context, word string) ([]Generated
 		return nil, errors.New("word cannot be empty")
 	}
 
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
 	config := c.buildGenerationConfig()
 	prompt := buildExamplePrompt(word)
 
-	result, err := c.aiClient.Models.GenerateContent(ctx, c.config.model, genai.Text(prompt), config)
+	result, err := c.aiClient.Models.GenerateContent(
+		ctx,
+		c.config.Model,
+		genai.Text(prompt),
+		config,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("gemini api call failed: %w", err)
 	}
@@ -68,7 +77,7 @@ func (c *Client) GenerateExamples(ctx context.Context, word string) ([]Generated
 
 func (c *Client) buildGenerationConfig() *genai.GenerateContentConfig {
 	return &genai.GenerateContentConfig{
-		Temperature: new(c.config.temperature),
+		Temperature: &c.config.Temperature,
 		SystemInstruction: &genai.Content{
 			Parts: []*genai.Part{
 				{Text: "あなたは日本語教師です。日本語学習者のために例文を生成します。"},
