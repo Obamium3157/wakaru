@@ -40,22 +40,23 @@ WHERE text = ?
 ORDER BY word_id;
 `
 
-const findKanjiQuery = `
-SELECT text
+const findKanjiBatchQuery = `
+SELECT word_id, text
 FROM kanji
-WHERE word_id = ?
-ORDER BY display_order;
+WHERE word_id IN (%s)
+ORDER BY word_id, display_order;
 `
 
-const findKanaQuery = `
-SELECT text
+const findKanaBatchQuery = `
+SELECT word_id, text
 FROM kana
-WHERE word_id = ?
-ORDER BY display_order;
+WHERE word_id IN (%s)
+ORDER BY word_id, display_order;
 `
 
-const findTranslationsQuery = `
+const findTranslationsBatchQuery = `
 SELECT
+  s.word_id,
   s.id,
   g.lang,
   g.text,
@@ -63,16 +64,17 @@ SELECT
 FROM sense s
 JOIN gloss g ON g.sense_id = s.id
 LEFT JOIN (
-  SELECT 
-    sps.sense_id, 
+  SELECT
+    sps.sense_id,
     GROUP_CONCAT(t.label, ', ') AS tags
   FROM sense_part_of_speech sps
   JOIN tag t
 	  ON t.id = sps.tag_id
+  WHERE sps.sense_id IN (SELECT id FROM sense WHERE word_id IN (%s))
   GROUP BY sps.sense_id
 ) pos ON pos.sense_id = s.id
-WHERE s.word_id = ?
-ORDER BY s.display_order, g.display_order;
+WHERE s.word_id IN (%s)
+ORDER BY s.word_id, s.display_order, g.display_order;
 `
 
 const findAllFormsQuery = `
@@ -81,11 +83,11 @@ UNION
 SELECT text FROM kana;
 `
 
-const findKanaReadingsForKanjiQuery = `
-SELECT kap.kanji_text, kn.text AS kana_text
+const findKanaReadingsForKanjiBatchQuery = `
+SELECT kn.word_id, kap.kanji_text, kn.text AS kana_text
 FROM kana kn
 JOIN kana_applies_to_kanji kap
   ON kap.kana_id = kn.id
-WHERE kn.word_id = ?
-ORDER BY kn.display_order, kap.display_order;
+WHERE kn.word_id IN (%s)
+ORDER BY kn.word_id, kn.display_order, kap.display_order;
 `

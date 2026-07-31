@@ -19,14 +19,7 @@ type SQLiteRepo struct {
 	findByKanji *sql.Stmt
 	findByKana  *sql.Stmt
 
-	findKanji *sql.Stmt
-	findKana  *sql.Stmt
-
-	findTranslations *sql.Stmt
-
 	findAllForms *sql.Stmt
-
-	findKanaReadingsForKanji *sql.Stmt
 }
 
 func NewSQLiteRepo(db *sql.DB) (*SQLiteRepo, error) {
@@ -43,19 +36,7 @@ func NewSQLiteRepo(db *sql.DB) (*SQLiteRepo, error) {
 	if repo.findByKana, err = db.Prepare(findByKanaQuery); err != nil {
 		return nil, err
 	}
-	if repo.findKanji, err = db.Prepare(findKanjiQuery); err != nil {
-		return nil, err
-	}
-	if repo.findKana, err = db.Prepare(findKanaQuery); err != nil {
-		return nil, err
-	}
-	if repo.findTranslations, err = db.Prepare(findTranslationsQuery); err != nil {
-		return nil, err
-	}
 	if repo.findAllForms, err = db.Prepare(findAllFormsQuery); err != nil {
-		return nil, err
-	}
-	if repo.findKanaReadingsForKanji, err = db.Prepare(findKanaReadingsForKanjiQuery); err != nil {
 		return nil, err
 	}
 
@@ -140,6 +121,13 @@ func (r *SQLiteRepo) FindAllForms(ctx context.Context) ([]string, error) {
 	return forms, nil
 }
 
+type entryData struct {
+	kanji         map[string][]string
+	kana          map[string][]string
+	translations  map[string][]Translation
+	kanjiReadings map[string]map[string]string
+}
+
 func (r *SQLiteRepo) loadEntries(ctx context.Context, rows *sql.Rows) ([]Entry, error) {
 	defer func() {
 		if err := rows.Close(); err != nil {
@@ -147,7 +135,25 @@ func (r *SQLiteRepo) loadEntries(ctx context.Context, rows *sql.Rows) ([]Entry, 
 		}
 	}()
 
-	var entries []Entry
+	wordIDs, err := scanWordIDs(rows)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(wordIDs) == 0 {
+		return nil, nil
+	}
+
+	data, err := r.loadEntryData(ctx, wordIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	return buildEntries(wordIDs, data), nil
+}
+
+func scanWordIDs(rows *sql.Rows) ([]string, error) {
+	var wordIDs []string
 
 	for rows.Next() {
 		var wordID string
@@ -156,23 +162,76 @@ func (r *SQLiteRepo) loadEntries(ctx context.Context, rows *sql.Rows) ([]Entry, 
 			return nil, err
 		}
 
-		entry, err := r.loadEntry(ctx, wordID)
-		if err != nil {
-			return nil, err
-		}
-
-		entries = append(entries, entry)
+		wordIDs = append(wordIDs, wordID)
 	}
 
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 
-	return entries, nil
+	return wordIDs, nil
 }
 
-func (r *SQLiteRepo) loadKanji(ctx context.Context, wordID string) ([]string, error) {
-	rows, err := r.findKanji.QueryContext(ctx, wordID)
+func (r *SQLiteRepo) loadEntryData(ctx context.Context, wordIDs []string) (entryData, error) {
+	kanji, err := r.loadKanjiBatch(ctx, wordIDs)
+	if err != nil {
+		return entryData{}, err
+	}
+
+	kana, err := r.loadKanaBatch(ctx, wordIDs)
+	if err != nil {
+		return entryData{}, err
+	}
+
+	translations, err := r.loadTranslationsBatch(ctx, wordIDs)
+	if err != nil {
+		return entryData{}, err
+	}
+
+	kanjiReadings, err := r.loadKanaReadingsForKanjiBatch(ctx, wordIDs)
+	if err != nil {
+		return entryData{}, err
+	}
+
+	return entryData{
+		kanji:         kanji,
+		kana:          kana,
+		translations:  translations,
+		kanjiReadings: kanjiReadings,
+	}, nil
+}
+
+func buildEntries(wordIDs []string, data entryData) []Entry {
+	entries := make([]Entry, 0, len(wordIDs))
+
+	for _, wordID := range wordIDs {
+		entryKanji := data.kanji[wordID]
+		entryKana := data.kana[wordID]
+
+		entries = append(entries, Entry{
+			ID:           wordID,
+			Kanji:        entryKanji,
+			Kana:         entryKana,
+			Ruby:         buildEntryRuby(entryKanji, entryKana, data.kanjiReadings[wordID]),
+			Translations: data.translations[wordID],
+		})
+	}
+
+	return entries
+}
+
+func (r *SQLiteRepo) loadKanjiBatch(ctx context.Context, wordIDs []string) (map[string][]string, error) {
+	query := fmt.Sprintf(
+		findKanjiBatchQuery,
+		strings.Join(sqlutils.GetPlaceholders(len(wordIDs)), ","),
+	)
+
+	args := make([]any, len(wordIDs))
+	for i, id := range wordIDs {
+		args[i] = id
+	}
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -182,16 +241,16 @@ func (r *SQLiteRepo) loadKanji(ctx context.Context, wordID string) ([]string, er
 		}
 	}()
 
-	var result []string
+	result := make(map[string][]string, len(wordIDs))
 
 	for rows.Next() {
-		var text string
+		var wordID, text string
 
-		if err := rows.Scan(&text); err != nil {
+		if err := rows.Scan(&wordID, &text); err != nil {
 			return nil, err
 		}
 
-		result = append(result, text)
+		result[wordID] = append(result[wordID], text)
 	}
 
 	if err := rows.Err(); err != nil {
@@ -201,8 +260,18 @@ func (r *SQLiteRepo) loadKanji(ctx context.Context, wordID string) ([]string, er
 	return result, nil
 }
 
-func (r *SQLiteRepo) loadKana(ctx context.Context, wordID string) ([]string, error) {
-	rows, err := r.findKana.QueryContext(ctx, wordID)
+func (r *SQLiteRepo) loadKanaBatch(ctx context.Context, wordIDs []string) (map[string][]string, error) {
+	query := fmt.Sprintf(
+		findKanaBatchQuery,
+		strings.Join(sqlutils.GetPlaceholders(len(wordIDs)), ","),
+	)
+
+	args := make([]any, len(wordIDs))
+	for i, id := range wordIDs {
+		args[i] = id
+	}
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -212,16 +281,16 @@ func (r *SQLiteRepo) loadKana(ctx context.Context, wordID string) ([]string, err
 		}
 	}()
 
-	var result []string
+	result := make(map[string][]string, len(wordIDs))
 
 	for rows.Next() {
-		var text string
+		var wordID, text string
 
-		if err := rows.Scan(&text); err != nil {
+		if err := rows.Scan(&wordID, &text); err != nil {
 			return nil, err
 		}
 
-		result = append(result, text)
+		result[wordID] = append(result[wordID], text)
 	}
 
 	if err := rows.Err(); err != nil {
@@ -231,8 +300,19 @@ func (r *SQLiteRepo) loadKana(ctx context.Context, wordID string) ([]string, err
 	return result, nil
 }
 
-func (r *SQLiteRepo) loadTranslations(ctx context.Context, wordID string) ([]Translation, error) {
-	rows, err := r.findTranslations.QueryContext(ctx, wordID)
+func (r *SQLiteRepo) loadTranslationsBatch(ctx context.Context, wordIDs []string) (map[string][]Translation, error) {
+	placeholders := strings.Join(sqlutils.GetPlaceholders(len(wordIDs)), ",")
+	query := fmt.Sprintf(findTranslationsBatchQuery, placeholders, placeholders)
+
+	args := make([]any, 0, 2*len(wordIDs))
+	for _, id := range wordIDs {
+		args = append(args, id)
+	}
+	for _, id := range wordIDs {
+		args = append(args, id)
+	}
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -242,27 +322,33 @@ func (r *SQLiteRepo) loadTranslations(ctx context.Context, wordID string) ([]Tra
 		}
 	}()
 
-	var translations []Translation
+	result := make(map[string][]Translation, len(wordIDs))
 
+	var currentWordID string
 	var currentSenseID int64 = -1
 
 	for rows.Next() {
 		var got struct {
+			wordID  string
 			senseID int64
 			lang    string
 			text    string
 			pos     *string
 		}
 
-		if err := rows.Scan(&got.senseID, &got.lang, &got.text, &got.pos); err != nil {
+		if err := rows.Scan(&got.wordID, &got.senseID, &got.lang, &got.text, &got.pos); err != nil {
 			return nil, err
 		}
 
-		if len(translations) == 0 || got.senseID != currentSenseID {
+		translations := result[got.wordID]
+
+		if len(translations) == 0 || got.wordID != currentWordID || got.senseID != currentSenseID {
 			translations = append(translations, Translation{
 				SenseID: got.senseID,
 				Pos:     got.pos,
 			})
+			result[got.wordID] = translations
+			currentWordID = got.wordID
 			currentSenseID = got.senseID
 		}
 
@@ -278,43 +364,21 @@ func (r *SQLiteRepo) loadTranslations(ctx context.Context, wordID string) ([]Tra
 		return nil, err
 	}
 
-	return translations, nil
+	return result, nil
 }
 
-func (r *SQLiteRepo) loadEntry(ctx context.Context, wordID string) (Entry, error) {
-	kanji, err := r.loadKanji(ctx, wordID)
-	if err != nil {
-		return Entry{}, err
+func (r *SQLiteRepo) loadKanaReadingsForKanjiBatch(ctx context.Context, wordIDs []string) (map[string]map[string]string, error) {
+	query := fmt.Sprintf(
+		findKanaReadingsForKanjiBatchQuery,
+		strings.Join(sqlutils.GetPlaceholders(len(wordIDs)), ","),
+	)
+
+	args := make([]any, len(wordIDs))
+	for i, id := range wordIDs {
+		args[i] = id
 	}
 
-	kana, err := r.loadKana(ctx, wordID)
-	if err != nil {
-		return Entry{}, err
-	}
-
-	translations, err := r.loadTranslations(ctx, wordID)
-	if err != nil {
-		return Entry{}, err
-	}
-
-	kanjiReadings, err := r.loadKanaReadingsForKanji(ctx, wordID)
-	if err != nil {
-		return Entry{}, err
-	}
-
-	ruby := buildEntryRuby(kanji, kana, kanjiReadings)
-
-	return Entry{
-		ID:           wordID,
-		Kanji:        kanji,
-		Kana:         kana,
-		Ruby:         ruby,
-		Translations: translations,
-	}, nil
-}
-
-func (r *SQLiteRepo) loadKanaReadingsForKanji(ctx context.Context, wordID string) (map[string]string, error) {
-	rows, err := r.findKanaReadingsForKanji.QueryContext(ctx, wordID)
+	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -324,21 +388,28 @@ func (r *SQLiteRepo) loadKanaReadingsForKanji(ctx context.Context, wordID string
 		}
 	}()
 
-	result := make(map[string]string)
-	var wildcardReading string
+	result := make(map[string]map[string]string, len(wordIDs))
 
 	for rows.Next() {
-		var kanjiText, kanaText string
-		if err := rows.Scan(&kanjiText, &kanaText); err != nil {
+		var wordID, kanjiText, kanaText string
+
+		if err := rows.Scan(&wordID, &kanjiText, &kanaText); err != nil {
 			return nil, err
 		}
+
+		readings, ok := result[wordID]
+		if !ok {
+			readings = make(map[string]string)
+			result[wordID] = readings
+		}
+
 		if kanjiText == "*" {
-			if wildcardReading == "" {
-				wildcardReading = kanaText
+			if _, exists := readings["*"]; !exists {
+				readings["*"] = kanaText
 			}
 		} else {
-			if _, exists := result[kanjiText]; !exists {
-				result[kanjiText] = kanaText
+			if _, exists := readings[kanjiText]; !exists {
+				readings[kanjiText] = kanaText
 			}
 		}
 	}
@@ -347,10 +418,12 @@ func (r *SQLiteRepo) loadKanaReadingsForKanji(ctx context.Context, wordID string
 		return nil, err
 	}
 
-	if wildcardReading != "" {
-		for k := range result {
-			if result[k] == "" {
-				result[k] = wildcardReading
+	for _, readings := range result {
+		if wildcard, ok := readings["*"]; ok && wildcard != "" {
+			for k := range readings {
+				if readings[k] == "" {
+					readings[k] = wildcard
+				}
 			}
 		}
 	}
