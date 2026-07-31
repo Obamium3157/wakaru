@@ -71,68 +71,77 @@ func BuildRubySegments(surface, reading string) []RubySegment {
 
 	segments := segmentByScript(surface)
 
-	hasKanaAnchor := false
-	for _, seg := range segments {
-		if !seg.isKanji {
-			hasKanaAnchor = true
-			break
-		}
-	}
-
-	if !hasKanaAnchor {
+	if !hasKanaSegment(segments) {
 		return []RubySegment{{Text: surface, Reading: &reading}}
 	}
 
+	if result, ok := alignReading(segments, reading); ok {
+		return result
+	}
+
+	return []RubySegment{{Text: surface, Reading: &reading}}
+}
+
+func hasKanaSegment(segments []scriptSegment) bool {
+	for _, seg := range segments {
+		if !seg.isKanji {
+			return true
+		}
+	}
+	return false
+}
+
+func alignReading(segments []scriptSegment, reading string) ([]RubySegment, bool) {
 	r := []rune(reading)
 	rNorm := []rune(toHiragana(reading))
 	pos := 0
 	result := make([]RubySegment, 0, len(segments))
-	valid := true
 
 	for i, seg := range segments {
 		if seg.isKanji {
-			isLast := i == len(segments)-1
-
-			if isLast {
-				readingPart := string(r[pos:])
-				if len(readingPart) == 0 {
-					valid = false
-					break
-				}
-				result = append(result, RubySegment{Text: seg.text, Reading: &readingPart})
-				pos = len(r)
-			} else {
-				nextKanaNorm := toHiragana(segments[i+1].text)
-				idx := indexOfRune(rNorm[pos:], []rune(nextKanaNorm))
-				if idx < 0 {
-					valid = false
-					break
-				}
-				readingPart := string(r[pos : pos+idx])
-				if len(readingPart) == 0 {
-					valid = false
-					break
-				}
-				result = append(result, RubySegment{Text: seg.text, Reading: &readingPart})
-				pos += idx
+			part, next, ok := kanjiReading(segments, i, r, rNorm, pos)
+			if !ok {
+				return nil, false
 			}
+			result = append(result, RubySegment{Text: seg.text, Reading: &part})
+			pos = next
 		} else {
-			k := []rune(seg.text)
-			kNorm := []rune(toHiragana(seg.text))
-			if pos+len(k) > len(r) || string(rNorm[pos:pos+len(k)]) != string(kNorm) {
-				valid = false
-				break
+			next, ok := kanaReading(seg.text, r, rNorm, pos)
+			if !ok {
+				return nil, false
 			}
 			result = append(result, RubySegment{Text: seg.text})
-			pos += len(k)
+			pos = next
 		}
 	}
 
-	if !valid || pos != len(r) {
-		return []RubySegment{{Text: surface, Reading: &reading}}
+	return result, pos == len(r)
+}
+
+func kanjiReading(segments []scriptSegment, i int, r, rNorm []rune, pos int) (part string, next int, ok bool) {
+	if i == len(segments)-1 {
+		part = string(r[pos:])
+		if len(part) == 0 {
+			return "", pos, false
+		}
+		return part, len(r), true
 	}
 
-	return result
+	nextKanaNorm := toHiragana(segments[i+1].text)
+	idx := indexOfRune(rNorm[pos:], []rune(nextKanaNorm))
+	if idx <= 0 {
+		return "", pos, false
+	}
+	return string(r[pos : pos+idx]), pos + idx, true
+}
+
+func kanaReading(text string, r, rNorm []rune, pos int) (int, bool) {
+	k := []rune(text)
+	kNorm := []rune(toHiragana(text))
+	if pos+len(k) > len(r) || string(rNorm[pos:pos+len(k)]) != string(kNorm) {
+		return pos, false
+	}
+	return pos + len(k), true
 }
 
 func indexOfRune(s, substr []rune) int {
