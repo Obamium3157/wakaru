@@ -8,6 +8,8 @@ import (
 	"database/sql"
 	"errors"
 	"log"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -15,6 +17,7 @@ import (
 	"wakaru/internal/ai"
 	"wakaru/internal/anki"
 	"wakaru/internal/examples"
+	"wakaru/internal/jmdict"
 	"wakaru/internal/jmdict/repository"
 	"wakaru/internal/tokenize"
 
@@ -81,11 +84,21 @@ func NewWakaru(
 	ctx context.Context,
 	sqlDriverName string,
 	dbPath string,
+	jmdictPath string,
 	ankiPort int,
 	aiClient ai.ExampleGenerator,
 ) (*Wakaru, error) {
+	if err := ensureDBDir(dbPath); err != nil {
+		return nil, err
+	}
+
 	db, err := openDB(sqlDriverName, dbPath)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := ensureJMDictDB(db, dbPath, jmdictPath); err != nil {
+		_ = db.Close()
 		return nil, err
 	}
 
@@ -348,6 +361,46 @@ func openDB(driverName string, dbPath string) (*sql.DB, error) {
 	}
 
 	return db, nil
+}
+
+func ensureDBDir(dbPath string) error {
+	dir := filepath.Dir(dbPath)
+	if dir == "." || dir == "" {
+		return nil
+	}
+
+	return os.MkdirAll(dir, 0o755)
+}
+
+func ensureJMDictDB(db *sql.DB, dbPath string, jmdictPath string) error {
+	info, err := os.Stat(dbPath)
+	if err == nil {
+		if info.Size() > 0 {
+			return nil
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+
+	if jmdictPath == "" {
+		return errors.New("jmdict JSON path is empty; set JMDICT_PATH in .env to the JMDict dictionary file")
+	}
+
+	if err := jmdict.InitJMDictDB(db); err != nil {
+		return err
+	}
+
+	dict, err := jmdict.InitDictionary(jmdictPath)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("filling jmdict database from %q", jmdictPath)
+	if err := jmdict.FillDatabase(db, dict); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func createRepo(db *sql.DB) (repository.Repository, error) {

@@ -40,6 +40,7 @@ func main() {
 		ctx,
 		"sqlite3",
 		os.Getenv("DB_PATH"),
+		os.Getenv("JMDICT_PATH"),
 		ankiPort,
 		exampleGenerator,
 	)

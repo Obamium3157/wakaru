@@ -18,9 +18,7 @@ CREATE TABLE IF NOT EXISTS `kana` (
   `display_order` INTEGER NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS `idx_kana_word_id` ON `kana` (`word_id`);
 CREATE INDEX IF NOT EXISTS `idx_kana_text` ON `kana` (`text`);
-CREATE INDEX IF NOT EXISTS `idx_kana_word_order` ON `kana` (`word_id`, `display_order`);
 
 CREATE TABLE IF NOT EXISTS `kana_tag` (
   `kana_id` INTEGER NOT NULL REFERENCES `kana` (`id`) ON DELETE CASCADE,
@@ -139,9 +137,8 @@ CREATE TABLE IF NOT EXISTS `gloss` (
   `display_order` INTEGER NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS `idx_gloss_sense_id` ON `gloss` (`sense_id`);
 CREATE INDEX IF NOT EXISTS `idx_gloss_text` ON `gloss` (`text`);
-CREATE INDEX IF NOT EXISTS `idx_gloss_display_order` ON `gloss` (`display_order`);
+CREATE INDEX IF NOT EXISTS `idx_gloss_sense_order` ON `gloss` (`sense_id`, `display_order`);
 
 CREATE TABLE IF NOT EXISTS `language_source` (
   `id` INTEGER PRIMARY KEY,
@@ -168,7 +165,6 @@ CREATE TABLE IF NOT EXISTS `xref` (
 CREATE INDEX IF NOT EXISTS `idx_xref_sense_id` ON `xref` (`sense_id`);
 CREATE INDEX IF NOT EXISTS `idx_xref_headword` ON `xref` (`headword`);
 CREATE INDEX IF NOT EXISTS `idx_xref_reading` ON `xref` (`reading`);
-CREATE INDEX IF NOT EXISTS `idx_xref_display_order` ON `xref` (`display_order`);
 
 CREATE TABLE IF NOT EXISTS `xref_resolved` (
   `xref_id` INTEGER PRIMARY KEY REFERENCES `xref` (`id`) ON DELETE CASCADE,
@@ -178,3 +174,8 @@ CREATE TABLE IF NOT EXISTS `xref_resolved` (
 
 CREATE INDEX IF NOT EXISTS `idx_xref_resolved_word_id` ON `xref_resolved` (`word_id`);
 CREATE INDEX IF NOT EXISTS `idx_xref_resolved_sense_id` ON `xref_resolved` (`sense_id`);
+
+CREATE INDEX IF NOT EXISTS `idx_sense_part_of_speech_tag_id` ON `sense_part_of_speech` (`tag_id`);
+CREATE INDEX IF NOT EXISTS `idx_sense_dialect_tag_id` ON `sense_dialect` (`tag_id`);
+CREATE INDEX IF NOT EXISTS `idx_sense_field_tag_id` ON `sense_field` (`tag_id`);
+CREATE INDEX IF NOT EXISTS `idx_sense_misc_tag_id` ON `sense_misc` (`tag_id`);
