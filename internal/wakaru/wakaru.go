@@ -168,6 +168,13 @@ func (w *Wakaru) resolveExamples(
 	g, ctx := errgroup.WithContext(ctx)
 	for i, t := range tokens {
 		g.Go(func() error {
+			select {
+			case w.httpSem <- struct{}{}:
+				defer func() { <-w.httpSem }()
+			case <-ctx.Done():
+				return nil
+			}
+
 			examples := w.FindExamples(ctx, t)
 			results[i].Examples = examples
 			if onExamples != nil {
@@ -287,24 +294,8 @@ func (w *Wakaru) FindExamples(ctx context.Context, t tokenize.DisplayToken) []ex
 		}
 	}
 
-	select {
-	case w.httpSem <- struct{}{}:
-		defer func() { <-w.httpSem }()
-	case <-ctx.Done():
-		return nil
-	}
-
 	if ctx.Err() != nil {
 		return nil
-	}
-
-	if cached, ok := w.exampleCache.Load(*t.Lookup); ok {
-		examples, ok := cached.([]examples.Example)
-		if !ok {
-			log.Printf("unexpected type in example cache for %q: %T", *t.Lookup, cached)
-		} else {
-			return examples
-		}
 	}
 
 	examples, err := w.examplesClient.Search(ctx, examples.SearchParameters{
