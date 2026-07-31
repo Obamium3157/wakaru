@@ -2,9 +2,9 @@ package ai
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 
 	"google.golang.org/genai"
 )
@@ -34,17 +34,6 @@ func New(ctx context.Context, conf ClientConfig, apiKey string) (*Client, error)
 	}, nil
 }
 
-var exampleStyles = []struct {
-	Name        string
-	Description string
-}{
-	{Name: "Casual", Description: "Casual (casual speech between friends)"},
-	{Name: "Polite", Description: "Polite (desu/masu form)"},
-	{Name: "Formal", Description: "Formal (honorific speech)"},
-	{Name: "Written", Description: "Literary (written Japanese style)"},
-	{Name: "Question", Description: "Question form (interrogative sentence)"},
-}
-
 func (c *Client) GenerateExamples(ctx context.Context, word string) ([]GeneratedExample, error) {
 	if word == "" {
 		return nil, errors.New("word cannot be empty")
@@ -72,69 +61,34 @@ func (c *Client) GenerateExamples(ctx context.Context, word string) ([]Generated
 		return nil, errors.New("gemini returned empty response")
 	}
 
-	return parseExamplesResponse(text)
+	var examples []GeneratedExample
+	if err := json.Unmarshal([]byte(text), &examples); err != nil {
+		return nil, fmt.Errorf("invalid JSON from gemini: %w", err)
+	}
+
+	if err := validateExamples(examples); err != nil {
+		return nil, err
+	}
+
+	return examples, nil
 }
 
 func (c *Client) buildGenerationConfig() *genai.GenerateContentConfig {
 	return &genai.GenerateContentConfig{
-		Temperature: &c.config.Temperature,
+		Temperature:      &c.config.Temperature,
+		ResponseMIMEType: "application/json",
+		ResponseSchema:   buildResponseSchema(),
 		SystemInstruction: &genai.Content{
 			Parts: []*genai.Part{
-				{Text: "あなたは日本語教師です。日本語学習者のために例文を生成します。"},
+				{Text: systemInstruction},
 			},
 		},
 	}
 }
 
-func buildExamplePrompt(word string) string {
-	var styleLines []string
-	for i, s := range exampleStyles {
-		styleLines = append(styleLines, fmt.Sprintf("%d. %s", i+1, s.Description))
-	}
+const systemInstruction = `あなたは日本語教師です。日本語学習者のために、指定された単語を使った自然な日本語の例文を生成します。
 
-	return fmt.Sprintf(
-		`「%s」という単語を使った例文を5つ生成してください。それぞれ異なるスタイルにしてください。
-
-スタイル:
-%s
-
-出力形式（各行を正確にこの形式にしてください）:
-1. [スタイル名]: [日本語の例文]
-2. [スタイル名]: [日本語の例文]`,
-		word,
-		strings.Join(styleLines, "\n"),
-	)
-}
-
-func parseExamplesResponse(text string) ([]GeneratedExample, error) {
-	lines := strings.Split(strings.TrimSpace(text), "\n")
-	var examples []GeneratedExample
-
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-
-		content := line
-		if idx := strings.Index(line, ". "); idx != -1 && idx < 3 {
-			content = line[idx+2:]
-		}
-
-		parts := strings.SplitN(content, ": ", 2)
-		if len(parts) != 2 {
-			continue
-		}
-
-		examples = append(examples, GeneratedExample{
-			Style: strings.TrimSpace(parts[0]),
-			Text:  strings.TrimSpace(parts[1]),
-		})
-	}
-
-	if len(examples) == 0 {
-		return nil, errors.New("no valid examples found in gemini response")
-	}
-
-	return examples, nil
-}
+出力ルール:
+- 要求されたJSON形式のみを出力してください。JSON以外のテキスト（マークダウン、説明、前置き、翻訳、コードブロック）は絶対に出力しないでください。
+- 各例文は自然な日本語で、必ず1文にしてください。
+- 同じ例文を繰り返さないでください。`
