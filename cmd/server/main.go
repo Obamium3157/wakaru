@@ -29,7 +29,7 @@ func main() {
 	}
 
 	exampleGenerator, err := ai.New(ctx, ai.ClientConfig{
-		Model:       "gemini-2.5-flash",
+		Model:       "gemini-3.6-flash",
 		Temperature: 0.8,
 	}, os.Getenv("GEMINI_API_KEY"))
 	if err != nil {
@@ -98,6 +98,7 @@ func initMux(w *wakaru.Wakaru) *http.ServeMux {
 	mux.HandleFunc("POST /api/translate", translateHandler(w))
 	mux.HandleFunc("GET /api/word/{text}", wordHandler(w))
 	mux.HandleFunc("POST /api/anki/note", ankiHandler(w))
+	mux.HandleFunc("POST /api/ai/examples", aiExamplesHandler(w))
 	mux.HandleFunc("GET /{path...}", spaHandler("frontend/dist"))
 
 	return mux

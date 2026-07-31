@@ -190,3 +190,43 @@ func ankiHandler(w *wakaru.Wakaru) http.HandlerFunc {
 		rw.WriteHeader(http.StatusNoContent)
 	}
 }
+
+type aiExamplesRequest struct {
+	Word string `json:"word"`
+}
+
+func aiExamplesHandler(w *wakaru.Wakaru) http.HandlerFunc {
+	return func(rw http.ResponseWriter, r *http.Request) {
+		req, err := decodeAIExamplesRequest(r)
+		if err != nil {
+			http.Error(rw, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		examples, err := w.GenerateAIExamples(r.Context(), req.Word)
+		if err != nil {
+			log.Printf("ai examples error: %v", err)
+			http.Error(rw, "internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		rw.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(rw).Encode(map[string]any{
+			"examples": examples,
+		}); err != nil {
+			log.Printf("ai examples encode error: %v", err)
+		}
+	}
+}
+
+func decodeAIExamplesRequest(r *http.Request) (aiExamplesRequest, error) {
+	var req aiExamplesRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return req, errors.New("invalid request body")
+	}
+	if req.Word == "" {
+		return req, errors.New("word is required")
+	}
+
+	return req, nil
+}

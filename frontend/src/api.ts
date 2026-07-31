@@ -1,4 +1,4 @@
-import type { AddBasicNoteRequest, Entry, Example, TranslateResponse } from "./types";
+import type { AddBasicNoteRequest, AIExample, Entry, Example, TranslateResponse } from "./types";
 
 export async function translate(text: string): Promise<TranslateResponse> {
   const res = await fetch("/api/translate", {
@@ -146,4 +146,21 @@ export async function addBasicNote(req: AddBasicNoteRequest): Promise<void> {
     const message = await res.text();
     throw new Error(message || `request failed: ${res.status}`);
   }
+}
+
+export async function generateAIExamples(word: string): Promise<{ examples: AIExample[] }> {
+  const res = await fetch("/api/ai/examples", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ word })
+  });
+
+  if (!res.ok) {
+    const message = await res.text();
+    throw new Error(message || `request failed: ${res.status}`);
+  }
+
+  return res.json();
 }

@@ -38,6 +38,11 @@ export interface Example {
   text: string;
 }
 
+export interface AIExample {
+  style: string;
+  text: string;
+}
+
 export interface AddBasicNoteRequest {
   deckName: string;
   front: string;

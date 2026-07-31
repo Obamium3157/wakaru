@@ -3,6 +3,7 @@ import { Entry } from "./Entry";
 
 import styles from "./WordInfoPage.module.css";
 import { useWordInfo } from "../hooks/useWordInfo";
+import { useGenerateAIExamples } from "../hooks/useGenerateAIExamples";
 
 export function WordInfoPage() {
   const {
@@ -13,6 +14,13 @@ export function WordInfoPage() {
     loading,
     error,
   } = useWordInfo();
+
+  const {
+    aiExamples,
+    aiLoading,
+    aiError,
+    handleGenerateAIExamples,
+  } = useGenerateAIExamples({ word })
 
   return (
     <div className={styles.page}>
@@ -35,14 +43,37 @@ export function WordInfoPage() {
         </div>
       ))}
 
-      {examples.length > 0 && (
+      {!loading && !error && entries.length > 0 && (
         <div className={styles.examplesSection}>
           <h3 className={styles.sectionTitle}>Examples</h3>
-          <ul className={styles.exampleList}>
-            {examples.map((ex) => (
-              <li key={ex.id} className={styles.exampleItem}>{ex.text}</li>
-            ))}
-          </ul>
+          <button
+            className={styles.aiButton}
+            onClick={handleGenerateAIExamples}
+            disabled={aiLoading}
+          >
+            {aiLoading ? "Generating..." : "Generate AI Examples"}
+          </button>
+
+          {aiError && <div className={styles.aiError}>{aiError}</div>}
+
+          {aiExamples.length > 0 && (
+            <ul className={styles.exampleList}>
+              {aiExamples.map((ex, i) => (
+                <li key={i} className={styles.exampleItem}>
+                  <span className={styles.aiExampleStyle}>{ex.style}: </span>
+                  {ex.text}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {examples.length > 0 && (
+            <ul className={styles.exampleList}>
+              {examples.map((ex) => (
+                <li key={ex.id} className={styles.exampleItem}>{ex.text}</li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
     </div>
