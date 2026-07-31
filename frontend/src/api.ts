@@ -29,7 +29,6 @@ export function translateStream(
 ): AbortController {
   const controller = new AbortController();
 
-  console.log('[translateStream] starting fetch for', text);
   fetch("/api/translate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -37,7 +36,6 @@ export function translateStream(
     signal: controller.signal,
   })
     .then((res) => {
-      console.log('[translateStream] response status:', res.status, 'for', text);
       checkResponse(res);
       return readSSEStream(res.body!.getReader(), callbacks);
     })
