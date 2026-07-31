@@ -51,7 +51,11 @@ export function WordInfoPage() {
             onClick={handleGenerateAIExamples}
             disabled={aiLoading}
           >
-            {aiLoading ? "Generating..." : "Generate AI Examples"}
+            {aiLoading
+              ? "Generating..."
+              : aiExamples.length > 0
+                ? "Regenerate AI Examples"
+                : "Generate AI Examples"}
           </button>
 
           {aiError && <div className={styles.aiError}>{aiError}</div>}
