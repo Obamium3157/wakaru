@@ -41,7 +41,7 @@ var exampleStyles = []struct {
 	{Name: "Casual", Description: "Casual (casual speech between friends)"},
 	{Name: "Polite", Description: "Polite (desu/masu form)"},
 	{Name: "Formal", Description: "Formal (honorific speech)"},
-	{Name: "Written", Description: "Written/Literary (written Japanese style)"},
+	{Name: "Written", Description: "Literary (written Japanese style)"},
 	{Name: "Question", Description: "Question form (interrogative sentence)"},
 }
 
