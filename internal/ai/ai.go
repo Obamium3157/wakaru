@@ -1,3 +1,4 @@
+// Package ai provides AI-powered generation of Japanese example sentences.
 package ai
 
 import (
